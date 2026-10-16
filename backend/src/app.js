@@ -1,10 +1,20 @@
 const express = require('express');
-const { filterPrices, getMarkets, getPriceById } = require('./data');
+const { filterPrices, getMarkets, getPriceById, validatePrice, addPrice } = require('./data');
 
 const app = express();
 
+app.use(express.json());
+
 app.get('/api/prices', (req, res) => {
   res.json(filterPrices(req.query.market, req.query.crop));
+});
+
+app.post('/api/prices', (req, res) => {
+  const errors = validatePrice(req.body || {});
+  if (errors.length > 0) {
+    return res.status(400).json({ errors });
+  }
+  res.status(201).json(addPrice(req.body));
 });
 
 app.get('/api/prices/:id', (req, res) => {

@@ -55,3 +55,37 @@ tr:hover {
     padding: 16px;
   }
 }
+
+.add-form {
+  margin-top: 30px;
+  padding: 20px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.add-form h3 {
+  margin-top: 0;
+}
+
+.add-form .fields {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.add-form input,
+.add-form button {
+  padding: 8px 10px;
+  font-size: 15px;
+}
+
+.add-form button {
+  background: #27ae60;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.success {
+  color: #27ae60;
+}

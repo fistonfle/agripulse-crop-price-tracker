@@ -23,7 +23,7 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 1. **Price feed** — view current prices for staples (Maize, Beans, Irish Potatoes, Rice) across markets like Kimironko, Musanze, Nyabugogo and Rubavu
 2. **Search & filter** — filter prices by crop name or market
 3. **Price comparison** *(planned)* — compare today's prices with previous weeks
-4. **Contributor portal** *(planned)* — verified traders submit daily market prices
+4. **Add new prices** — market collectors submit new prices through a form (login for verified traders planned)
 
 ## Technology Stack
 
@@ -45,14 +45,16 @@ agripulse-crop-price-tracker/
 │   │   ├── data.js         # Sample price data and filter helpers
 │   │   └── server.js       # Starts the API on port 3000
 │   ├── tests/
-│   │   └── app.test.js     # API tests
+│   │   ├── app.test.js     # API tests
+│   │   └── addPrice.test.js # Add price tests
 │   └── package.json
 ├── frontend/               # React + Vite app
 │   ├── src/
 │   │   ├── App.jsx         # Main page: search, filter, table
 │   │   ├── App.test.jsx    # UI tests
 │   │   ├── components/
-│   │   │   └── PriceTable.jsx
+│   │   │   ├── PriceTable.jsx
+│   │   │   └── AddPriceForm.jsx
 │   │   └── main.jsx
 │   ├── vite.config.js      # Proxies /api to the backend
 │   └── package.json
@@ -106,6 +108,7 @@ cd ../frontend && npm run lint && npm test
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
 | GET | `/api/prices` | All prices as JSON. Optional `?market=` and `?crop=` |
+| POST | `/api/prices` | Add a price. JSON body: `{ crop, market, district, pricePerKg }` |
 | GET | `/api/prices/:id` | A single price entry |
 | GET | `/api/markets` | List of markets |
 | GET | `/health` | Health check |
