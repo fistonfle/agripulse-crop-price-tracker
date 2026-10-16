@@ -21,12 +21,12 @@
     <p>Market prices for farmers and traders across Rwanda.</p>
 
     <form method="get" action="/">
-        <input type="text" name="crop" placeholder="Search crop e.g. Beans" value="{{ search }}">
+        <input type="text" name="crop" placeholder="Search crop e.g. Beans" value="<%= search %>">
         <select name="market">
             <option value="">All markets</option>
-            {% for m in markets %}
-            <option value="{{ m }}" {% if m == selected_market %}selected{% endif %}>{{ m }}</option>
-            {% endfor %}
+            <% markets.forEach((m) => { %>
+            <option value="<%= m %>" <%= m === selectedMarket ? 'selected' : '' %>><%= m %></option>
+            <% }) %>
         </select>
         <button type="submit">Filter</button>
         <a href="/">Reset</a>
@@ -42,16 +42,17 @@
             </tr>
         </thead>
         <tbody>
-            {% for item in prices %}
-            <tr>
-                <td>{{ item.crop }}</td>
-                <td>{{ item.market }}</td>
-                <td>{{ item.district }}</td>
-                <td><strong>{{ item.price_per_kg }} RWF</strong></td>
-            </tr>
-            {% else %}
+            <% if (prices.length === 0) { %>
             <tr><td colspan="4">No prices found.</td></tr>
-            {% endfor %}
+            <% } %>
+            <% prices.forEach((item) => { %>
+            <tr>
+                <td><%= item.crop %></td>
+                <td><%= item.market %></td>
+                <td><%= item.district %></td>
+                <td><strong><%= item.pricePerKg %> RWF</strong></td>
+            </tr>
+            <% }) %>
         </tbody>
     </table>
 </body>

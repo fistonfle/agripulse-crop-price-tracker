@@ -29,21 +29,26 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 
 | Layer | Technology |
 | ----- | ---------- |
-| Backend | Python, Flask |
-| Frontend | HTML5, CSS (Jinja templates) |
-| Testing | pytest |
+| Backend | Node.js, Express 5 |
+| Frontend | HTML5, CSS (EJS templates) |
+| Testing | Jest, Supertest |
+| Linting | ESLint |
 | Version control | Git & GitHub |
 
 ## Project Structure
 
 ```
 agripulse-crop-price-tracker/
-├── app.py              # Flask app and routes
-├── templates/
-│   └── index.html      # Price table page
+├── src/
+│   ├── app.js          # Express app and routes
+│   ├── data.js         # Sample price data and filter helpers
+│   └── server.js       # Starts the server
+├── views/
+│   └── index.ejs       # Price table page
 ├── tests/
-│   └── test_app.py     # Unit tests
-├── requirements.txt
+│   └── app.test.js     # Unit tests
+├── eslint.config.js
+├── package.json
 └── README.md
 ```
 
@@ -51,25 +56,26 @@ agripulse-crop-price-tracker/
 
 ### Prerequisites
 
-- Python 3.10+
+- Node.js 20+ and npm
 
 ### Run locally
 
 ```bash
-git clone https://github.com/<your-username>/agripulse-crop-price-tracker.git
+git clone https://github.com/fistonfle/agripulse-crop-price-tracker.git
 cd agripulse-crop-price-tracker
-python3 -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
+npm install
+npm start
 ```
 
-Open http://127.0.0.1:5000 in your browser.
+Open http://localhost:3000 in your browser.
 
-### Run tests
+For development, `npm run dev` restarts the server when you save a file.
+
+### Run lint and tests
 
 ```bash
-pytest
+npm run lint
+npm test
 ```
 
 ## API Endpoints
