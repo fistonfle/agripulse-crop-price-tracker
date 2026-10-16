@@ -83,7 +83,7 @@ pytest
 
 ## Project Board
 
-Our backlog is tracked on the GitHub Projects board: *(add link here)*
+Our backlog is tracked on the GitHub Projects board: [AgriPulse Board](https://github.com/users/fistonfle/projects/4/views/1)
 
 ## License
 
