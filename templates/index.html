@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPulse - Crop Price Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f4f7f6; color: #333; }
+        h1 { color: #2c3e50; }
+        form { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+        input, select, button { padding: 8px 10px; font-size: 15px; }
+        button { background: #27ae60; color: white; border: none; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #27ae60; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+    </style>
+</head>
+<body>
+    <h1>🌾 AgriPulse: Rwandan Crop Price Tracker</h1>
+    <p>Market prices for farmers and traders across Rwanda.</p>
+
+    <form method="get" action="/">
+        <input type="text" name="crop" placeholder="Search crop e.g. Beans" value="{{ search }}">
+        <select name="market">
+            <option value="">All markets</option>
+            {% for m in markets %}
+            <option value="{{ m }}" {% if m == selected_market %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Filter</button>
+        <a href="/">Reset</a>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Crop</th>
+                <th>Market</th>
+                <th>District</th>
+                <th>Price (RWF / kg)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in prices %}
+            <tr>
+                <td>{{ item.crop }}</td>
+                <td>{{ item.market }}</td>
+                <td>{{ item.district }}</td>
+                <td><strong>{{ item.price_per_kg }} RWF</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">No prices found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
