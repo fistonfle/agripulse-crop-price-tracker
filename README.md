@@ -29,9 +29,9 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 
 | Layer | Technology |
 | ----- | ---------- |
-| Backend | Node.js, Express 5 |
-| Frontend | HTML5, CSS (EJS templates) |
-| Testing | Jest, Supertest |
+| Frontend | React 19, Vite |
+| Backend | Node.js, Express 5 (REST API) |
+| Testing | Jest + Supertest (backend), Vitest + React Testing Library (frontend) |
 | Linting | ESLint |
 | Version control | Git & GitHub |
 
@@ -39,16 +39,23 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 
 ```
 agripulse-crop-price-tracker/
-├── src/
-│   ├── app.js          # Express app and routes
-│   ├── data.js         # Sample price data and filter helpers
-│   └── server.js       # Starts the server
-├── views/
-│   └── index.ejs       # Price table page
-├── tests/
-│   └── app.test.js     # Unit tests
-├── eslint.config.js
-├── package.json
+├── backend/                # Express REST API
+│   ├── src/
+│   │   ├── app.js          # API routes
+│   │   ├── data.js         # Sample price data and filter helpers
+│   │   └── server.js       # Starts the API on port 3000
+│   ├── tests/
+│   │   └── app.test.js     # API tests
+│   └── package.json
+├── frontend/               # React + Vite app
+│   ├── src/
+│   │   ├── App.jsx         # Main page: search, filter, table
+│   │   ├── App.test.jsx    # UI tests
+│   │   ├── components/
+│   │   │   └── PriceTable.jsx
+│   │   └── main.jsx
+│   ├── vite.config.js      # Proxies /api to the backend
+│   └── package.json
 └── README.md
 ```
 
@@ -60,31 +67,47 @@ agripulse-crop-price-tracker/
 
 ### Run locally
 
+You need **two terminals**: one for the backend, one for the frontend.
+
 ```bash
 git clone https://github.com/fistonfle/agripulse-crop-price-tracker.git
 cd agripulse-crop-price-tracker
-npm install
-npm start
 ```
 
-Open http://localhost:3000 in your browser.
+**Terminal 1: backend (API)**
 
-For development, `npm run dev` restarts the server when you save a file.
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+The API runs at http://localhost:3000.
+
+**Terminal 2: frontend (React)**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 in your browser. Vite forwards `/api` requests to the backend.
 
 ### Run lint and tests
 
 ```bash
-npm run lint
-npm test
+cd backend && npm run lint && npm test
+cd ../frontend && npm run lint && npm test
 ```
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
-| GET | `/` | Web page with price table, search and market filter |
 | GET | `/api/prices` | All prices as JSON. Optional `?market=` and `?crop=` |
-| GET | `/api/prices/<id>` | A single price entry |
+| GET | `/api/prices/:id` | A single price entry |
+| GET | `/api/markets` | List of markets |
 | GET | `/health` | Health check |
 
 ## Project Board
