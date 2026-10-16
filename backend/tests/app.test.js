@@ -1,11 +1,11 @@
 const request = require('supertest');
 const app = require('../src/app');
 
-describe('AgriPulse', () => {
-  test('home page loads', async () => {
-    const res = await request(app).get('/');
+describe('AgriPulse API', () => {
+  test('health check works', async () => {
+    const res = await request(app).get('/health');
     expect(res.status).toBe(200);
-    expect(res.text).toContain('AgriPulse');
+    expect(res.body.status).toBe('ok');
   });
 
   test('returns all prices', async () => {
@@ -26,8 +26,19 @@ describe('AgriPulse', () => {
     res.body.forEach((p) => expect(p.crop).toBe('Beans'));
   });
 
+  test('returns a single price', async () => {
+    const res = await request(app).get('/api/prices/3');
+    expect(res.status).toBe(200);
+    expect(res.body.crop).toBe('Beans');
+  });
+
   test('returns 404 for unknown price', async () => {
     const res = await request(app).get('/api/prices/999');
     expect(res.status).toBe(404);
+  });
+
+  test('returns the list of markets', async () => {
+    const res = await request(app).get('/api/markets');
+    expect(res.body).toEqual(['Kimironko', 'Musanze', 'Nyabugogo', 'Rubavu', 'Rwamagana']);
   });
 });

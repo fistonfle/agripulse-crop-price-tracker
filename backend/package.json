@@ -1,7 +1,7 @@
 {
-  "name": "agripulse-crop-price-tracker",
+  "name": "agripulse-backend",
   "version": "1.0.0",
-  "description": "Rwandan crop price tracker for farmers and traders",
+  "description": "AgriPulse REST API (Express)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -14,7 +14,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "ejs": "^3.1.10",
     "express": "^5.3.0"
   },
   "devDependencies": {
