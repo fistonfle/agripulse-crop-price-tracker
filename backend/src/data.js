@@ -30,4 +30,30 @@ function getPriceById(id) {
   return cropPrices.find((p) => p.id === id);
 }
 
-module.exports = { cropPrices, filterPrices, getMarkets, getPriceById };
+// Check a new price entry. Returns a list of error messages (empty if valid).
+function validatePrice(entry) {
+  const errors = [];
+  ['crop', 'market', 'district'].forEach((field) => {
+    if (typeof entry[field] !== 'string' || entry[field].trim() === '') {
+      errors.push(`${field} is required`);
+    }
+  });
+  if (typeof entry.pricePerKg !== 'number' || !(entry.pricePerKg > 0)) {
+    errors.push('pricePerKg must be a positive number');
+  }
+  return errors;
+}
+
+function addPrice(entry) {
+  const newPrice = {
+    id: Math.max(0, ...cropPrices.map((p) => p.id)) + 1,
+    crop: entry.crop.trim(),
+    market: entry.market.trim(),
+    district: entry.district.trim(),
+    pricePerKg: entry.pricePerKg,
+  };
+  cropPrices.push(newPrice);
+  return newPrice;
+}
+
+module.exports = { cropPrices, filterPrices, getMarkets, getPriceById, validatePrice, addPrice };

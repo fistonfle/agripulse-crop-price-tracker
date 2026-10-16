@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import PriceTable from './components/PriceTable.jsx'
+import AddPriceForm from './components/AddPriceForm.jsx'
 
 function App() {
   const [prices, setPrices] = useState([])
@@ -7,14 +8,16 @@ function App() {
   const [crop, setCrop] = useState('')
   const [market, setMarket] = useState('')
   const [error, setError] = useState('')
+  // Changing this number reloads the data (used after adding a price)
+  const [refresh, setRefresh] = useState(0)
 
-  // Load the market list once for the dropdown
+  // Load the market list for the dropdown
   useEffect(() => {
     fetch('/api/markets')
       .then((res) => res.json())
       .then(setMarkets)
       .catch(() => setError('Could not load markets'))
-  }, [])
+  }, [refresh])
 
   // Reload prices every time the search or market changes
   useEffect(() => {
@@ -29,7 +32,7 @@ function App() {
         setError('')
       })
       .catch(() => setError('Could not load prices. Is the backend running?'))
-  }, [crop, market])
+  }, [crop, market, refresh])
 
   return (
     <main>
@@ -57,6 +60,8 @@ function App() {
       {error && <p className="error">{error}</p>}
 
       <PriceTable prices={prices} />
+
+      <AddPriceForm onAdded={() => setRefresh(refresh + 1)} />
     </main>
   )
 }
