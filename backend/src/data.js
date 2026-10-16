@@ -13,11 +13,14 @@ const cropPrices = [
 // Return prices matching the market and/or crop name (case-insensitive)
 function filterPrices(market, crop) {
   let results = cropPrices;
-  if (market) {
-    results = results.filter((p) => p.market.toLowerCase() === market.toLowerCase());
+  const normalizedMarket = typeof market === 'string' ? market.trim().toLowerCase() : '';
+  const normalizedCrop = typeof crop === 'string' ? crop.trim().toLowerCase() : '';
+
+  if (normalizedMarket) {
+    results = results.filter((p) => p.market.toLowerCase() === normalizedMarket);
   }
-  if (crop) {
-    results = results.filter((p) => p.crop.toLowerCase().includes(crop.toLowerCase()));
+  if (normalizedCrop) {
+    results = results.filter((p) => p.crop.toLowerCase().includes(normalizedCrop));
   }
   return results;
 }
