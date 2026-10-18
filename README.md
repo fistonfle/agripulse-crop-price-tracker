@@ -1,5 +1,7 @@
 # 🌾 AgriPulse: Rwandan Crop Price Tracker
 
+[![CI](https://github.com/fistonfle/agripulse-crop-price-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/fistonfle/agripulse-crop-price-tracker/actions/workflows/ci.yml)
+
 > Empowering farmers, traders, and cooperatives with market price transparency.
 
 ## Problem Statement
@@ -33,12 +35,15 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 | Backend | Node.js, Express 5 (REST API) |
 | Testing | Jest + Supertest (backend), Vitest + React Testing Library (frontend) |
 | Linting | ESLint |
+| CI | GitHub Actions |
 | Version control | Git & GitHub |
 
 ## Project Structure
 
 ```
 agripulse-crop-price-tracker/
+├── .github/workflows/
+│   └── ci.yml              # CI: lint, test, build on PRs
 ├── backend/                # Express REST API
 │   ├── src/
 │   │   ├── app.js          # API routes
@@ -102,6 +107,8 @@ Open http://localhost:5173 in your browser. Vite forwards `/api` requests to the
 cd backend && npm run lint && npm test
 cd ../frontend && npm run lint && npm test
 ```
+
+The same checks run automatically on every pull request through GitHub Actions ([ci.yml](.github/workflows/ci.yml)).
 
 ## API Endpoints
 
