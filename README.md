@@ -23,7 +23,7 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 ## Core Features
 
 1. **Price feed** — view current prices for staples (Maize, Beans, Irish Potatoes, Rice) across markets like Kimironko, Musanze, Nyabugogo and Rubavu
-2. **Search & filter** — filter prices by crop name or market
+2. **Search & filter** — filter prices by crop name, market or district
 3. **Price comparison** *(planned)* — compare today's prices with previous weeks
 4. **Add new prices** — market collectors submit new prices through a form (login for verified traders planned)
 
@@ -114,10 +114,11 @@ The same checks run automatically on every pull request through GitHub Actions (
 
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
-| GET | `/api/prices` | All prices as JSON. Optional `?market=` and `?crop=` |
+| GET | `/api/prices` | All prices as JSON. Optional `?market=`, `?district=` and `?crop=` |
 | POST | `/api/prices` | Add a price. JSON body: `{ crop, market, district, pricePerKg }` |
 | GET | `/api/prices/:id` | A single price entry |
 | GET | `/api/markets` | List of markets |
+| GET | `/api/districts` | List of districts |
 | GET | `/health` | Health check |
 
 ## Project Board
