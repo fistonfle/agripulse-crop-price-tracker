@@ -44,5 +44,14 @@ test('searching for a crop updates the table', async () => {
 test('shows a message when nothing is found', async () => {
   render(<App />)
   await userEvent.type(screen.getByLabelText('Search crop'), 'xyz')
-  expect(await screen.findByText('No prices found.')).toBeInTheDocument()
+  expect(await screen.findByText('No prices found for "xyz"')).toBeInTheDocument()
+})
+
+
+test('search ignores extra spaces', async () => {
+  render(<App />)
+  await screen.findByText('Maize')
+  await userEvent.type(screen.getByLabelText('Search crop'), '  beans  ')
+  expect(fetch).toHaveBeenLastCalledWith('/api/prices?crop=beans')
+  expect(await screen.findByText('Beans')).toBeInTheDocument()
 })

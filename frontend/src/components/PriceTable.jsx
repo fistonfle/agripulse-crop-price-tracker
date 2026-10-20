@@ -1,4 +1,4 @@
-function PriceTable({ prices }) {
+function PriceTable({ prices, search = '' }) {
   return (
     <table>
       <thead>
@@ -12,7 +12,9 @@ function PriceTable({ prices }) {
       <tbody>
         {prices.length === 0 && (
           <tr>
-            <td colSpan="4">No prices found.</td>
+            <td colSpan="4">
+              {search ? `No prices found for "${search}"` : 'No prices found.'}
+            </td>
           </tr>
         )}
         {prices.map((item) => (

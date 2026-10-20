@@ -8,6 +8,19 @@ describe('AgriPulse API', () => {
     expect(res.body.status).toBe('ok');
   });
 
+  test('search for a crop that does not exist returns an empty list', async () => {
+    const res = await request(app).get('/api/prices?crop=xyz');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  test('search ignores extra spaces', async () => {
+    const res = await request(app).get('/api/prices?crop=%20%20beans%20');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    res.body.forEach((p) => expect(p.crop).toBe('Beans'));
+  });
+
   test('returns all prices', async () => {
     const res = await request(app).get('/api/prices');
     expect(res.status).toBe(200);
