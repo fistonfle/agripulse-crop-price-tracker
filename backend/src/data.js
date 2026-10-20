@@ -11,7 +11,7 @@ const cropPrices = [
 ];
 
 // Return prices matching the market and/or crop name (case-insensitive)
-function filterPrices(market, crop) {
+function filterPrices(market, crop, district) {
   let results = cropPrices;
   if (market) {
     results = results.filter((p) => p.market.toLowerCase() === market.toLowerCase());
@@ -19,11 +19,18 @@ function filterPrices(market, crop) {
   if (crop) {
     results = results.filter((p) => p.crop.toLowerCase().includes(crop.toLowerCase()));
   }
+  if (district) {
+    results = results.filter((p) => p.district.toLowerCase() === district.toLowerCase());
+  }
   return results;
 }
 
 function getMarkets() {
   return [...new Set(cropPrices.map((p) => p.market))].sort();
+}
+
+function getDistricts() {
+  return [...new Set(cropPrices.map((p) => p.district))].sort();
 }
 
 function getPriceById(id) {
@@ -56,4 +63,4 @@ function addPrice(entry) {
   return newPrice;
 }
 
-module.exports = { cropPrices, filterPrices, getMarkets, getPriceById, validatePrice, addPrice };
+module.exports = { cropPrices, filterPrices, getMarkets, getDistricts, getPriceById, validatePrice, addPrice };
