@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import App from './App.jsx'
 
 const samplePrices = [
-  { id: 1, crop: 'Maize', market: 'Kimironko', district: 'Gasabo', pricePerKg: 450 },
-  { id: 3, crop: 'Beans', market: 'Nyabugogo', district: 'Nyarugenge', pricePerKg: 900 },
+  { id: 1, crop: 'Maize', market: 'Kimironko', district: 'Gasabo', pricePerKg: 450, change: 50 },
+  { id: 3, crop: 'Beans', market: 'Nyabugogo', district: 'Nyarugenge', pricePerKg: 900, change: -20 },
 ]
 
 // Fake the backend so the tests don't need the API running
@@ -57,4 +57,10 @@ test('filtering by district updates the table', async () => {
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'District' }), 'Gasabo')
   expect(fetch).toHaveBeenLastCalledWith('/api/prices?district=Gasabo')
   expect(await screen.findByText('Maize')).toBeInTheDocument()
+})
+
+test('shows the change since last week', async () => {
+  render(<App />)
+  expect(await screen.findByText('▲ +50 RWF')).toBeInTheDocument()
+  expect(screen.getByText('▼ -20 RWF')).toBeInTheDocument()
 })

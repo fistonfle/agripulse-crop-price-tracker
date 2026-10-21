@@ -10,6 +10,26 @@ const cropPrices = [
   { id: 8, crop: 'Irish Potatoes', market: 'Nyabugogo', district: 'Nyarugenge', pricePerKg: 400 },
 ];
 
+// Older prices for each entry (priceId matches the id above), newest last
+const priceHistory = [
+  { priceId: 1, date: '2026-10-07', pricePerKg: 380 },
+  { priceId: 1, date: '2026-10-14', pricePerKg: 400 },
+  { priceId: 2, date: '2026-10-07', pricePerKg: 400 },
+  { priceId: 2, date: '2026-10-14', pricePerKg: 380 },
+  { priceId: 3, date: '2026-10-07', pricePerKg: 880 },
+  { priceId: 3, date: '2026-10-14', pricePerKg: 900 },
+  { priceId: 4, date: '2026-10-07', pricePerKg: 470 },
+  { priceId: 4, date: '2026-10-14', pricePerKg: 480 },
+  { priceId: 5, date: '2026-10-07', pricePerKg: 1250 },
+  { priceId: 5, date: '2026-10-14', pricePerKg: 1250 },
+  { priceId: 6, date: '2026-10-07', pricePerKg: 820 },
+  { priceId: 6, date: '2026-10-14', pricePerKg: 800 },
+  { priceId: 7, date: '2026-10-07', pricePerKg: 400 },
+  { priceId: 7, date: '2026-10-14', pricePerKg: 420 },
+  { priceId: 8, date: '2026-10-07', pricePerKg: 350 },
+  { priceId: 8, date: '2026-10-14', pricePerKg: 370 },
+];
+
 // Return prices matching the market and/or crop name (case-insensitive)
 function filterPrices(market, crop, district) {
   let results = cropPrices;
@@ -35,6 +55,25 @@ function getDistricts() {
 
 function getPriceById(id) {
   return cropPrices.find((p) => p.id === id);
+}
+
+// Past prices for one entry, oldest first
+function getHistory(priceId) {
+  return priceHistory
+    .filter((h) => h.priceId === priceId)
+    .map(({ date, pricePerKg }) => ({ date, pricePerKg }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Add last week's price and the change since then (null when there is no history)
+function withChange(price) {
+  const history = getHistory(price.id);
+  const lastWeek = history[history.length - 1];
+  return {
+    ...price,
+    lastWeekPrice: lastWeek ? lastWeek.pricePerKg : null,
+    change: lastWeek ? price.pricePerKg - lastWeek.pricePerKg : null,
+  };
 }
 
 // Check a new price entry. Returns a list of error messages (empty if valid).
@@ -63,4 +102,14 @@ function addPrice(entry) {
   return newPrice;
 }
 
-module.exports = { cropPrices, filterPrices, getMarkets, getDistricts, getPriceById, validatePrice, addPrice };
+module.exports = {
+  cropPrices,
+  filterPrices,
+  getMarkets,
+  getDistricts,
+  getPriceById,
+  getHistory,
+  withChange,
+  validatePrice,
+  addPrice,
+};
