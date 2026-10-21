@@ -32,7 +32,7 @@ function App() {
   // Reload prices every time the search or market changes
   useEffect(() => {
     const params = new URLSearchParams()
-    if (crop) params.append('crop', crop)
+    if (crop.trim()) params.append('crop', crop.trim())
     if (market) params.append('market', market)
     if (district) params.append('district', district)
     fetch(`/api/prices?${params}`)
@@ -81,7 +81,7 @@ function App() {
 
       {error && <p className="error">{error}</p>}
 
-      <PriceTable prices={prices} />
+      <PriceTable prices={prices} search={crop.trim()} />
 
       <AddPriceForm onAdded={() => setRefresh(refresh + 1)} />
     </main>

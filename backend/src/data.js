@@ -16,8 +16,9 @@ function filterPrices(market, crop, district) {
   if (market) {
     results = results.filter((p) => p.market.toLowerCase() === market.toLowerCase());
   }
-  if (crop) {
-    results = results.filter((p) => p.crop.toLowerCase().includes(crop.toLowerCase()));
+  const cropText = typeof crop === 'string' ? crop.trim().toLowerCase() : '';
+  if (cropText) {
+    results = results.filter((p) => p.crop.toLowerCase().includes(cropText));
   }
   if (district) {
     results = results.filter((p) => p.district.toLowerCase() === district.toLowerCase());
