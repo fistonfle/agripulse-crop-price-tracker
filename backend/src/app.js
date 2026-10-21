@@ -1,12 +1,12 @@
 const express = require('express');
-const { filterPrices, getMarkets, getPriceById, validatePrice, addPrice } = require('./data');
+const { filterPrices, getMarkets, getDistricts, getPriceById, validatePrice, addPrice } = require('./data');
 
 const app = express();
 
 app.use(express.json());
 
 app.get('/api/prices', (req, res) => {
-  res.json(filterPrices(req.query.market, req.query.crop));
+  res.json(filterPrices(req.query.market, req.query.crop, req.query.district));
 });
 
 app.post('/api/prices', (req, res) => {
@@ -27,6 +27,10 @@ app.get('/api/prices/:id', (req, res) => {
 
 app.get('/api/markets', (req, res) => {
   res.json(getMarkets());
+});
+
+app.get('/api/districts', (req, res) => {
+  res.json(getDistricts());
 });
 
 app.get('/health', (req, res) => {

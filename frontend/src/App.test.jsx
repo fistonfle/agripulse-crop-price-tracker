@@ -13,6 +13,10 @@ beforeEach(() => {
     let data = samplePrices
     if (url === '/api/markets') {
       data = ['Kimironko', 'Nyabugogo']
+    } else if (url === '/api/districts') {
+      data = ['Gasabo', 'Nyarugenge']
+    } else if (url.includes('district=Gasabo')) {
+      data = samplePrices.filter((p) => p.district === 'Gasabo')
     } else if (url.includes('crop=beans')) {
       data = samplePrices.filter((p) => p.crop === 'Beans')
     } else if (url.includes('crop=xyz')) {
@@ -45,4 +49,12 @@ test('shows a message when nothing is found', async () => {
   render(<App />)
   await userEvent.type(screen.getByLabelText('Search crop'), 'xyz')
   expect(await screen.findByText('No prices found.')).toBeInTheDocument()
+})
+
+test('filtering by district updates the table', async () => {
+  render(<App />)
+  await screen.findByRole('option', { name: 'Gasabo' })
+  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'District' }), 'Gasabo')
+  expect(fetch).toHaveBeenLastCalledWith('/api/prices?district=Gasabo')
+  expect(await screen.findByText('Maize')).toBeInTheDocument()
 })

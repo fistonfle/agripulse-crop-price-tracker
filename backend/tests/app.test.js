@@ -26,6 +26,19 @@ describe('AgriPulse API', () => {
     res.body.forEach((p) => expect(p.crop).toBe('Beans'));
   });
 
+  test('filters by district (case-insensitive)', async () => {
+    const res = await request(app).get('/api/prices?district=gasabo');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    res.body.forEach((p) => expect(p.district).toBe('Gasabo'));
+  });
+
+  test('returns the list of districts', async () => {
+    const res = await request(app).get('/api/districts');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(['Gasabo', 'Musanze', 'Nyarugenge', 'Rubavu', 'Rwamagana']);
+  });
+
   test('returns a single price', async () => {
     const res = await request(app).get('/api/prices/3');
     expect(res.status).toBe(200);
