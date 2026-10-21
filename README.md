@@ -13,6 +13,7 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 | Name | Role | Email |
 | ---- | ---- | ----- |
 | Nshimiyandinze Fiston | Software Engineer | n.fiston@alustudent.com |
+| Leroy Milfred Carew | Software Engineer | l.carew@alustudent.com |
 
 ## Target Users
 
