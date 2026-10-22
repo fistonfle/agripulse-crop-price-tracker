@@ -13,6 +13,7 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 | Name | Role | Email |
 | ---- | ---- | ----- |
 | Nshimiyandinze Fiston | Software Engineer | n.fiston@alustudent.com |
+| Aluel Tabitha Kuir | Software Engineer | t.kuir@alustudent.com |
 
 ## Target Users
 
@@ -23,8 +24,8 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 ## Core Features
 
 1. **Price feed** — view current prices for staples (Maize, Beans, Irish Potatoes, Rice) across markets like Kimironko, Musanze, Nyabugogo and Rubavu
-2. **Search & filter** — filter prices by crop name or market
-3. **Price comparison** *(planned)* — compare today's prices with previous weeks
+2. **Search & filter** — filter prices by crop name, market or district
+3. **Price comparison** — see how each price changed since last week (▲ up / ▼ down)
 4. **Add new prices** — market collectors submit new prices through a form (login for verified traders planned)
 
 ## Technology Stack
@@ -51,7 +52,8 @@ agripulse-crop-price-tracker/
 │   │   └── server.js       # Starts the API on port 3000
 │   ├── tests/
 │   │   ├── app.test.js     # API tests
-│   │   └── addPrice.test.js # Add price tests
+│   │   ├── addPrice.test.js # Add price tests
+│   │   └── priceChange.test.js # Price comparison tests
 │   └── package.json
 ├── frontend/               # React + Vite app
 │   ├── src/
@@ -59,6 +61,7 @@ agripulse-crop-price-tracker/
 │   │   ├── App.test.jsx    # UI tests
 │   │   ├── components/
 │   │   │   ├── PriceTable.jsx
+│   │   │   ├── PriceChange.jsx
 │   │   │   └── AddPriceForm.jsx
 │   │   └── main.jsx
 │   ├── vite.config.js      # Proxies /api to the backend
@@ -114,10 +117,12 @@ The same checks run automatically on every pull request through GitHub Actions (
 
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
-| GET | `/api/prices` | All prices as JSON. Optional `?market=` and `?crop=` |
+| GET | `/api/prices` | All prices as JSON, with `lastWeekPrice` and `change`. Optional `?market=`, `?district=` and `?crop=` |
 | POST | `/api/prices` | Add a price. JSON body: `{ crop, market, district, pricePerKg }` |
 | GET | `/api/prices/:id` | A single price entry |
+| GET | `/api/prices/:id/history` | Past prices for an entry, oldest first |
 | GET | `/api/markets` | List of markets |
+| GET | `/api/districts` | List of districts |
 | GET | `/health` | Health check |
 
 ## Project Board

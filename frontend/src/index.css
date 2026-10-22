@@ -89,3 +89,21 @@ tr:hover {
 .success {
   color: #27ae60;
 }
+
+.change {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.change.up {
+  color: #c0392b;
+}
+
+.change.down {
+  color: #27ae60;
+}
+
+.change.same,
+.change.new {
+  color: #7f8c8d;
+}

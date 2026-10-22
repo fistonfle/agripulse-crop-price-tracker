@@ -30,9 +30,9 @@ test('handles missing date gracefully', () => {
   expect(screen.getByText('—')).toBeInTheDocument()
 })
 
-test('empty state renders with five columns', () => {
+test('empty state spans all six columns', () => {
   render(<PriceTable prices={[]} />)
   const cell = screen.getByText('No prices found.')
   expect(cell).toBeInTheDocument()
-  expect(cell).toHaveAttribute('colspan', '5')
+  expect(cell).toHaveAttribute('colspan', '6')
 })

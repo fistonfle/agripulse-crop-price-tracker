@@ -5,8 +5,10 @@ import AddPriceForm from './components/AddPriceForm.jsx'
 function App() {
   const [prices, setPrices] = useState([])
   const [markets, setMarkets] = useState([])
+  const [districts, setDistricts] = useState([])
   const [crop, setCrop] = useState('')
   const [market, setMarket] = useState('')
+  const [district, setDistrict] = useState('')
   const [error, setError] = useState('')
   // Changing this number reloads the data (used after adding a price)
   const [refresh, setRefresh] = useState(0)
@@ -19,12 +21,20 @@ function App() {
       .catch(() => setError('Could not load markets'))
   }, [refresh])
 
+  // Load the district list for the dropdown
+  useEffect(() => {
+    fetch('/api/districts')
+      .then((res) => res.json())
+      .then(setDistricts)
+      .catch(() => setError('Could not load districts'))
+  }, [refresh])
+
   // Reload prices every time the search or market changes
   useEffect(() => {
     const params = new URLSearchParams()
-    if (crop) params.append('crop', crop)
+    if (crop.trim()) params.append('crop', crop.trim())
     if (market) params.append('market', market)
-
+    if (district) params.append('district', district)
     fetch(`/api/prices?${params}`)
       .then((res) => res.json())
       .then((data) => {
@@ -32,7 +42,7 @@ function App() {
         setError('')
       })
       .catch(() => setError('Could not load prices. Is the backend running?'))
-  }, [crop, market, refresh])
+  }, [crop, market, district, refresh])
 
   return (
     <main>
@@ -55,11 +65,23 @@ function App() {
             </option>
           ))}
         </select>
+        <select
+          aria-label="District"
+          value={district}
+          onChange={(e) => setDistrict(e.target.value)}
+        >
+          <option value="">All districts</option>
+          {districts.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
       </div>
 
       {error && <p className="error">{error}</p>}
 
-      <PriceTable prices={prices} />
+      <PriceTable prices={prices} search={crop.trim()} />
 
       <AddPriceForm onAdded={() => setRefresh(refresh + 1)} />
     </main>
