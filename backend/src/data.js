@@ -1,80 +1,68 @@
-// Sample data for now (no database yet)
-const cropPrices = [
-  { id: 1, crop: 'Maize', market: 'Kimironko', district: 'Gasabo', pricePerKg: 450, date: '2026-10-16' },
-  { id: 2, crop: 'Irish Potatoes', market: 'Musanze', district: 'Musanze', pricePerKg: 350, date: '2026-10-16' },
-  { id: 3, crop: 'Beans', market: 'Nyabugogo', district: 'Nyarugenge', pricePerKg: 900, date: '2026-10-17' },
-  { id: 4, crop: 'Cassava Flour', market: 'Rwamagana', district: 'Rwamagana', pricePerKg: 500, date: '2026-10-17' },
-  { id: 5, crop: 'Rice', market: 'Kimironko', district: 'Gasabo', pricePerKg: 1200, date: '2026-10-18' },
-  { id: 6, crop: 'Beans', market: 'Musanze', district: 'Musanze', pricePerKg: 850, date: '2026-10-18' },
-  { id: 7, crop: 'Maize', market: 'Rubavu', district: 'Rubavu', pricePerKg: 420, date: '2026-10-19' },
-  { id: 8, crop: 'Irish Potatoes', market: 'Nyabugogo', district: 'Nyarugenge', pricePerKg: 400, date: '2026-10-20' },
-];
+const pool = require('./db');
 
-// Older prices for each entry (priceId matches the id above), newest last
-const priceHistory = [
-  { priceId: 1, date: '2026-10-07', pricePerKg: 380 },
-  { priceId: 1, date: '2026-10-14', pricePerKg: 400 },
-  { priceId: 2, date: '2026-10-07', pricePerKg: 400 },
-  { priceId: 2, date: '2026-10-14', pricePerKg: 380 },
-  { priceId: 3, date: '2026-10-07', pricePerKg: 880 },
-  { priceId: 3, date: '2026-10-14', pricePerKg: 900 },
-  { priceId: 4, date: '2026-10-07', pricePerKg: 470 },
-  { priceId: 4, date: '2026-10-14', pricePerKg: 480 },
-  { priceId: 5, date: '2026-10-07', pricePerKg: 1250 },
-  { priceId: 5, date: '2026-10-14', pricePerKg: 1250 },
-  { priceId: 6, date: '2026-10-07', pricePerKg: 820 },
-  { priceId: 6, date: '2026-10-14', pricePerKg: 800 },
-  { priceId: 7, date: '2026-10-07', pricePerKg: 400 },
-  { priceId: 7, date: '2026-10-14', pricePerKg: 420 },
-  { priceId: 8, date: '2026-10-07', pricePerKg: 350 },
-  { priceId: 8, date: '2026-10-14', pricePerKg: 370 },
-];
+// Columns returned for every price, including last week's price and the change.
+// LATERAL picks the newest history row for each price.
+const PRICE_SELECT = `
+  SELECT p.id, p.crop, p.market, p.district,
+         p.price_per_kg AS "pricePerKg",
+         p.date,
+         h.price_per_kg AS "lastWeekPrice",
+         p.price_per_kg - h.price_per_kg AS change
+  FROM prices p
+  LEFT JOIN LATERAL (
+    SELECT price_per_kg FROM price_history
+    WHERE price_id = p.id
+    ORDER BY date DESC
+    LIMIT 1
+  ) h ON true
+`;
 
-// Return prices matching the market and/or crop name (case-insensitive)
-function filterPrices(market, crop, district) {
-  let results = cropPrices;
+// Return prices matching the market, crop name and/or district (case-insensitive)
+async function filterPrices(market, crop, district) {
+  const conditions = [];
+  const values = [];
+
   if (market) {
-    results = results.filter((p) => p.market.toLowerCase() === market.toLowerCase());
+    values.push(market.trim());
+    conditions.push(`LOWER(p.market) = LOWER($${values.length})`);
   }
-  const cropText = typeof crop === 'string' ? crop.trim().toLowerCase() : '';
+  const cropText = typeof crop === 'string' ? crop.trim() : '';
   if (cropText) {
-    results = results.filter((p) => p.crop.toLowerCase().includes(cropText));
+    values.push(`%${cropText}%`);
+    conditions.push(`p.crop ILIKE $${values.length}`);
   }
   if (district) {
-    results = results.filter((p) => p.district.toLowerCase() === district.toLowerCase());
+    values.push(district.trim());
+    conditions.push(`LOWER(p.district) = LOWER($${values.length})`);
   }
-  return results;
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const { rows } = await pool.query(`${PRICE_SELECT} ${where} ORDER BY p.id`, values);
+  return rows;
 }
 
-function getMarkets() {
-  return [...new Set(cropPrices.map((p) => p.market))].sort();
+async function getMarkets() {
+  const { rows } = await pool.query('SELECT DISTINCT market FROM prices ORDER BY market');
+  return rows.map((r) => r.market);
 }
 
-function getDistricts() {
-  return [...new Set(cropPrices.map((p) => p.district))].sort();
+async function getDistricts() {
+  const { rows } = await pool.query('SELECT DISTINCT district FROM prices ORDER BY district');
+  return rows.map((r) => r.district);
 }
 
-function getPriceById(id) {
-  return cropPrices.find((p) => p.id === id);
+async function getPriceById(id) {
+  const { rows } = await pool.query(`${PRICE_SELECT} WHERE p.id = $1`, [id]);
+  return rows[0];
 }
 
 // Past prices for one entry, oldest first
-function getHistory(priceId) {
-  return priceHistory
-    .filter((h) => h.priceId === priceId)
-    .map(({ date, pricePerKg }) => ({ date, pricePerKg }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-}
-
-// Add last week's price and the change since then (null when there is no history)
-function withChange(price) {
-  const history = getHistory(price.id);
-  const lastWeek = history[history.length - 1];
-  return {
-    ...price,
-    lastWeekPrice: lastWeek ? lastWeek.pricePerKg : null,
-    change: lastWeek ? price.pricePerKg - lastWeek.pricePerKg : null,
-  };
+async function getHistory(priceId) {
+  const { rows } = await pool.query(
+    'SELECT date, price_per_kg AS "pricePerKg" FROM price_history WHERE price_id = $1 ORDER BY date',
+    [priceId],
+  );
+  return rows;
 }
 
 // Check a new price entry. Returns a list of error messages (empty if valid).
@@ -85,34 +73,28 @@ function validatePrice(entry) {
       errors.push(`${field} is required`);
     }
   });
-  if (typeof entry.pricePerKg !== 'number' || !(entry.pricePerKg > 0)) {
+  if (!Number.isInteger(entry.pricePerKg) || entry.pricePerKg <= 0) {
     errors.push('pricePerKg must be a positive number');
   }
   return errors;
 }
 
-function addPrice(entry) {
-  const newPrice = {
-    id: Math.max(0, ...cropPrices.map((p) => p.id)) + 1,
-    crop: entry.crop.trim(),
-    market: entry.market.trim(),
-    district: entry.district.trim(),
-    pricePerKg: entry.pricePerKg,
-    date: new Date().toISOString().slice(0, 10),
-  };
-
-  cropPrices.push(newPrice);
-  return newPrice;
+async function addPrice(entry) {
+  const { rows } = await pool.query(
+    `INSERT INTO prices (crop, market, district, price_per_kg)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id`,
+    [entry.crop.trim(), entry.market.trim(), entry.district.trim(), entry.pricePerKg],
+  );
+  return getPriceById(rows[0].id);
 }
 
 module.exports = {
-  cropPrices,
   filterPrices,
   getMarkets,
   getDistricts,
   getPriceById,
   getHistory,
-  withChange,
   validatePrice,
   addPrice,
 };

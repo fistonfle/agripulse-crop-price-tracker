@@ -14,6 +14,26 @@ jobs:
       run:
         working-directory: backend
 
+    # A throwaway PostgreSQL database just for the tests
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agripulse
+          POSTGRES_PASSWORD: agripulse
+          POSTGRES_DB: agripulse_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agripulse"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgres://agripulse:agripulse@localhost:5432/agripulse_test
+      JWT_SECRET: ci-test-secret
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4

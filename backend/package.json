@@ -7,14 +7,17 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "lint": "eslint .",
-    "test": "jest"
+    "test": "jest --runInBand",
+    "db:setup": "node scripts/setup-db.js"
   },
   "license": "MIT",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "express": "^5.3.0"
+    "dotenv": "^16.6.1",
+    "express": "^5.3.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -22,5 +25,10 @@
     "globals": "^15.15.0",
     "jest": "^29.7.0",
     "supertest": "^7.3.1"
+  },
+  "jest": {
+    "setupFilesAfterEnv": [
+      "./tests/setup.js"
+    ]
   }
 }

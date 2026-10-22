@@ -34,6 +34,7 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 | ----- | ---------- |
 | Frontend | React 19, Vite |
 | Backend | Node.js, Express 5 (REST API) |
+| Database | PostgreSQL 16 (Docker Compose), `pg` library |
 | Testing | Jest + Supertest (backend), Vitest + React Testing Library (frontend) |
 | Linting | ESLint |
 | CI | GitHub Actions |
@@ -45,10 +46,14 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 agripulse-crop-price-tracker/
 ├── .github/workflows/
 │   └── ci.yml              # CI: lint, test, build on PRs
+├── docker-compose.yml      # PostgreSQL database
 ├── backend/                # Express REST API
+│   ├── db/                 # schema.sql (tables), seed.sql (sample data)
+│   ├── .env.example        # Settings (copy to .env)
 │   ├── src/
 │   │   ├── app.js          # API routes
-│   │   ├── data.js         # Sample price data and filter helpers
+│   │   ├── db.js           # PostgreSQL connection
+│   │   ├── data.js         # Database queries for prices
 │   │   └── server.js       # Starts the API on port 3000
 │   ├── tests/
 │   │   ├── app.test.js     # API tests
@@ -74,6 +79,7 @@ agripulse-crop-price-tracker/
 ### Prerequisites
 
 - **Git**: [git-scm.com/downloads](https://git-scm.com/downloads)
+- **Docker Desktop** (runs the database): [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
 - **Node.js 20 or newer** (npm comes with it): download the **LTS** version from [nodejs.org](https://nodejs.org/)
   - **Windows**: run the `.msi` installer and keep the default options
   - **macOS**: run the `.pkg` installer, or use Homebrew: `brew install node`
@@ -97,13 +103,25 @@ git clone https://github.com/fistonfle/agripulse-crop-price-tracker.git
 cd agripulse-crop-price-tracker
 ```
 
+**Step 1: start the database** (once; it keeps running in the background)
+
+```bash
+docker compose up -d
+```
+
+This starts PostgreSQL on port **5433** and creates two databases: `agripulse` (the app) and `agripulse_test` (automated tests).
+
 **Terminal 1: backend (API)**
 
 ```bash
 cd backend
 npm install
+cp .env.example .env      # Windows: copy .env.example .env
+npm run db:setup          # creates the tables and loads sample prices
 npm run dev
 ```
+
+`npm run db:setup` deletes all data and starts fresh. Run it the first time, or when you want to reset.
 
 The API runs at http://localhost:3000.
 
@@ -117,11 +135,15 @@ npm run dev
 
 Open http://localhost:5173 in your browser. Vite forwards `/api` requests to the backend.
 
-To check that the backend is running, open http://localhost:3000/health. You should see `{"status":"ok"}`.
+To check that the backend is running, open http://localhost:3000/health. You should see `{"status":"ok","database":"ok"}`.
+
+To stop the database: `docker compose down` (your data is kept). To delete the data too: `docker compose down -v`.
 
 To stop either app, press `Ctrl + C` in its terminal.
 
 ### Run lint and tests
+
+The backend tests need the database running (`docker compose up -d`). They use the separate `agripulse_test` database, so your app data is safe.
 
 ```bash
 cd backend && npm run lint && npm test
@@ -139,6 +161,8 @@ The same checks run automatically on every pull request through GitHub Actions (
 | `EADDRINUSE: address already in use :::3000` | Another program is using port 3000 (often an old backend still running). Close it with `Ctrl + C` in that terminal. Or find it: `lsof -i :3000` (macOS) / `netstat -ano \| findstr :3000` (Windows). |
 | Vite starts on port 5174 instead of 5173 | Port 5173 is busy. That's fine, just open the URL Vite prints. |
 | Page shows "Could not load prices. Is the backend running?" | The backend isn't running. Start it in Terminal 1 (`cd backend && npm run dev`) and refresh the page. |
+| Health shows `"database":"unreachable"` or `ECONNREFUSED ...:5433` | The database isn't running. Start Docker Desktop, then run `docker compose up -d` in the project root. |
+| `relation "prices" does not exist` | The tables weren't created yet. Run `npm run db:setup` in `backend/`. |
 | `Cannot find module ...` | Dependencies aren't installed. Run `npm install` in that folder. |
 | Changes don't show up | The frontend reloads automatically. For the backend, `npm run dev` restarts on save. If you used `npm start`, stop it and run again. |
 
