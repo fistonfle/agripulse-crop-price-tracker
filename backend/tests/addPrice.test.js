@@ -9,10 +9,12 @@ describe('POST /api/prices', () => {
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject(newPrice);
     expect(res.body.id).toBe(9);
+    expect(res.body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-    // The new price shows up in the list
+    // The new price shows up in the list with a date
     const list = await request(app).get('/api/prices?crop=sorghum');
     expect(list.body).toHaveLength(1);
+    expect(list.body[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   test('new market appears in the market list', async () => {

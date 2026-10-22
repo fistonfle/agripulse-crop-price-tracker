@@ -1,5 +1,16 @@
 import PriceChange from './PriceChange.jsx'
 
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  // Parse as local date to avoid UTC offset shifting the day
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 function PriceTable({ prices, search = '' }) {
   return (
     <table>
@@ -10,12 +21,13 @@ function PriceTable({ prices, search = '' }) {
           <th>District</th>
           <th>Price (RWF / kg)</th>
           <th>Change vs last week</th>
+          <th>Last updated</th>
         </tr>
       </thead>
       <tbody>
         {prices.length === 0 && (
           <tr>
-            <td colSpan="5">
+            <td colSpan="6">
               {search ? `No prices found for "${search}"` : 'No prices found.'}
             </td>
           </tr>
@@ -31,6 +43,7 @@ function PriceTable({ prices, search = '' }) {
             <td>
               <PriceChange change={item.change} />
             </td>
+            <td>{formatDate(item.date)}</td>
           </tr>
         ))}
       </tbody>

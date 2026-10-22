@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import App from './App.jsx'
 
 const samplePrices = [
-  { id: 1, crop: 'Maize', market: 'Kimironko', district: 'Gasabo', pricePerKg: 450, change: 50 },
-  { id: 3, crop: 'Beans', market: 'Nyabugogo', district: 'Nyarugenge', pricePerKg: 900, change: -20 },
+  { id: 1, crop: 'Maize', market: 'Kimironko', district: 'Gasabo', pricePerKg: 450, change: 50, date: '2026-01-15' },
+  { id: 3, crop: 'Beans', market: 'Nyabugogo', district: 'Nyarugenge', pricePerKg: 900, change: -20, date: '2026-01-16' },
 ]
 
 // Fake the backend so the tests don't need the API running
