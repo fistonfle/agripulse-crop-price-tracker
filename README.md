@@ -14,6 +14,7 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 | ---- | ---- | ----- |
 | Nshimiyandinze Fiston | Software Engineer | n.fiston@alustudent.com |
 | Aluel Tabitha Kuir | Software Engineer | t.kuir@alustudent.com |
+| Leroy Milfred Carew | Software Engineer | l.carew@alustudent.com |
 
 ## Target Users
 
@@ -142,6 +143,7 @@ Open http://localhost:5173 in your browser. Vite forwards `/api` requests to the
 To check that the backend is running, open http://localhost:3000/health. You should see `{"status":"ok","database":"ok"}`.
 
 To stop the database: `docker compose down` (your data is kept). To delete the data too: `docker compose down -v`.
+To check that the backend is running, open http://localhost:3000/health. You should see `{"status":"ok"}`.
 
 To stop either app, press `Ctrl + C` in its terminal.
 
