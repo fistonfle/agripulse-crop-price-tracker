@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: agripulse-db
+    environment:
+      POSTGRES_USER: agripulse
+      POSTGRES_PASSWORD: agripulse
+      POSTGRES_DB: agripulse
+    ports:
+      # 5433 on your computer -> 5432 in the container (avoids clashing with a local Postgres)
+      - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Runs once, the first time the database is created
+      - ./backend/db/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agripulse"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
