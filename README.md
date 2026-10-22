@@ -74,7 +74,20 @@ agripulse-crop-price-tracker/
 
 ### Prerequisites
 
-- Node.js 20+ and npm
+- **Git**: [git-scm.com/downloads](https://git-scm.com/downloads)
+- **Node.js 20 or newer** (npm comes with it): download the **LTS** version from [nodejs.org](https://nodejs.org/)
+  - **Windows**: run the `.msi` installer and keep the default options
+  - **macOS**: run the `.pkg` installer, or use Homebrew: `brew install node`
+
+After installing, open a **new** terminal and check the versions:
+
+```bash
+node -v    # should print v20 or higher
+npm -v
+git --version
+```
+
+On Windows, use **PowerShell** or **Git Bash**. On macOS, use **Terminal**.
 
 ### Run locally
 
@@ -105,6 +118,10 @@ npm run dev
 
 Open http://localhost:5173 in your browser. Vite forwards `/api` requests to the backend.
 
+To check that the backend is running, open http://localhost:3000/health. You should see `{"status":"ok"}`.
+
+To stop either app, press `Ctrl + C` in its terminal.
+
 ### Run lint and tests
 
 ```bash
@@ -113,6 +130,18 @@ cd ../frontend && npm run lint && npm test
 ```
 
 The same checks run automatically on every pull request through GitHub Actions ([ci.yml](.github/workflows/ci.yml)).
+
+### Common problems
+
+| Problem | Fix |
+| ------- | --- |
+| `node` or `npm` is not recognized | Node.js isn't installed, or the terminal was open during the install. Install Node.js LTS, then close and reopen the terminal. |
+| `npm error enoent ... package.json` | You're in the wrong folder. Run npm commands inside `backend/` or `frontend/`, not the project root. |
+| `EADDRINUSE: address already in use :::3000` | Another program is using port 3000 (often an old backend still running). Close it with `Ctrl + C` in that terminal. Or find it: `lsof -i :3000` (macOS) / `netstat -ano \| findstr :3000` (Windows). |
+| Vite starts on port 5174 instead of 5173 | Port 5173 is busy. That's fine, just open the URL Vite prints. |
+| Page shows "Could not load prices. Is the backend running?" | The backend isn't running. Start it in Terminal 1 (`cd backend && npm run dev`) and refresh the page. |
+| `Cannot find module ...` | Dependencies aren't installed. Run `npm install` in that folder. |
+| Changes don't show up | The frontend reloads automatically. For the backend, `npm run dev` restarts on save. If you used `npm start`, stop it and run again. |
 
 ## API Endpoints
 
