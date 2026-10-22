@@ -26,7 +26,8 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 1. **Price feed** — view current prices for staples (Maize, Beans, Irish Potatoes, Rice) across markets like Kimironko, Musanze, Nyabugogo and Rubavu
 2. **Search & filter** — filter prices by crop name, market or district
 3. **Price comparison** — see how each price changed since last week (▲ up / ▼ down)
-4. **Add new prices** — market collectors submit new prices through a form (login for verified traders planned)
+4. **Add new prices** — market collectors submit new prices through a form
+5. **Accounts** — register and log in; only logged-in users can add prices, and each price shows who added it
 
 ## Technology Stack
 
@@ -35,6 +36,7 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 | Frontend | React 19, Vite |
 | Backend | Node.js, Express 5 (REST API) |
 | Database | PostgreSQL 16 (Docker Compose), `pg` library |
+| Auth | JWT (`jsonwebtoken`), passwords hashed with `bcryptjs` |
 | Testing | Jest + Supertest (backend), Vitest + React Testing Library (frontend) |
 | Linting | ESLint |
 | CI | GitHub Actions |
@@ -52,6 +54,7 @@ agripulse-crop-price-tracker/
 │   ├── .env.example        # Settings (copy to .env)
 │   ├── src/
 │   │   ├── app.js          # API routes
+│   │   ├── auth.js         # Register, login, JWT check
 │   │   ├── db.js           # PostgreSQL connection
 │   │   ├── data.js         # Database queries for prices
 │   │   └── server.js       # Starts the API on port 3000
@@ -66,6 +69,7 @@ agripulse-crop-price-tracker/
 │   │   ├── App.test.jsx    # UI tests
 │   │   ├── components/
 │   │   │   ├── PriceTable.jsx
+│   │   │   ├── AuthForm.jsx
 │   │   │   ├── PriceChange.jsx
 │   │   │   └── AddPriceForm.jsx
 │   │   └── main.jsx
@@ -163,6 +167,8 @@ The same checks run automatically on every pull request through GitHub Actions (
 | Page shows "Could not load prices. Is the backend running?" | The backend isn't running. Start it in Terminal 1 (`cd backend && npm run dev`) and refresh the page. |
 | Health shows `"database":"unreachable"` or `ECONNREFUSED ...:5433` | The database isn't running. Start Docker Desktop, then run `docker compose up -d` in the project root. |
 | `relation "prices" does not exist` | The tables weren't created yet. Run `npm run db:setup` in `backend/`. |
+| "Please log in first" or you get logged out | Your login token is missing or expired (after 7 days). Log in again. |
+| `JWT_SECRET is not set` | Copy `backend/.env.example` to `backend/.env`. |
 | `Cannot find module ...` | Dependencies aren't installed. Run `npm install` in that folder. |
 | Changes don't show up | The frontend reloads automatically. For the backend, `npm run dev` restarts on save. If you used `npm start`, stop it and run again. |
 
@@ -171,12 +177,17 @@ The same checks run automatically on every pull request through GitHub Actions (
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
 | GET | `/api/prices` | All prices as JSON, with `lastWeekPrice` and `change`. Optional `?market=`, `?district=` and `?crop=` |
-| POST | `/api/prices` | Add a price. JSON body: `{ crop, market, district, pricePerKg }` |
+| POST | `/api/prices` | Add a price (**login required**). JSON body: `{ crop, market, district, pricePerKg }` |
 | GET | `/api/prices/:id` | A single price entry |
 | GET | `/api/prices/:id/history` | Past prices for an entry, oldest first |
 | GET | `/api/markets` | List of markets |
 | GET | `/api/districts` | List of districts |
-| GET | `/health` | Health check |
+| POST | `/api/auth/register` | Create an account. JSON body: `{ name, email, password }` (min 8 characters). Returns `{ user, token }` |
+| POST | `/api/auth/login` | Log in. JSON body: `{ email, password }`. Returns `{ user, token }` |
+| GET | `/api/auth/me` | The logged-in user (**login required**) |
+| GET | `/health` | Health check (also checks the database) |
+
+**Login required** means sending the token from register/login in a header: `Authorization: Bearer <token>`. Tokens last 7 days.
 
 ## Project Board
 

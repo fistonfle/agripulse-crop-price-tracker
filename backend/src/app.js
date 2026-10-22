@@ -9,6 +9,7 @@ const {
   validatePrice,
   addPrice,
 } = require('./data');
+const { createToken, validateRegister, registerUser, checkLogin, requireAuth } = require('./auth');
 
 const app = express();
 
@@ -24,12 +25,13 @@ app.get('/api/prices', async (req, res) => {
   res.json(await filterPrices(req.query.market, req.query.crop, req.query.district));
 });
 
-app.post('/api/prices', async (req, res) => {
+// Only logged-in users can add prices
+app.post('/api/prices', requireAuth, async (req, res) => {
   const errors = validatePrice(req.body || {});
   if (errors.length > 0) {
     return res.status(400).json({ errors });
   }
-  res.status(201).json(await addPrice(req.body));
+  res.status(201).json(await addPrice(req.body, req.user.id));
 });
 
 app.get('/api/prices/:id', async (req, res) => {
@@ -56,6 +58,32 @@ app.get('/api/markets', async (req, res) => {
 
 app.get('/api/districts', async (req, res) => {
   res.json(await getDistricts());
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  const body = req.body || {};
+  const errors = validateRegister(body);
+  if (errors.length > 0) {
+    return res.status(400).json({ errors });
+  }
+  const user = await registerUser(body);
+  if (!user) {
+    return res.status(409).json({ errors: ['an account with this email already exists'] });
+  }
+  res.status(201).json({ user, token: createToken(user) });
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body || {};
+  const user = await checkLogin(email, password);
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid email or password' });
+  }
+  res.json({ user, token: createToken(user) });
+});
+
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({ user: req.user });
 });
 
 // Also checks the database, so monitoring can tell if the DB is down

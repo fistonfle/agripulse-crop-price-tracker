@@ -17,11 +17,13 @@ test('sends the new price and tells the parent', async () => {
     }),
   )
   const onAdded = vi.fn()
-  render(<AddPriceForm onAdded={onAdded} />)
+  render(<AddPriceForm token="test-token" onAdded={onAdded} onSessionExpired={vi.fn()} />)
 
   await fillForm()
   await userEvent.click(screen.getByRole('button', { name: 'Add price' }))
 
+  // The login token is sent with the request
+  expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token')
   const body = JSON.parse(fetch.mock.calls[0][1].body)
   expect(body).toEqual({ crop: 'Sorghum', market: 'Huye', district: 'Huye', pricePerKg: 600 })
   expect(await screen.findByText('Added Sorghum at Huye')).toBeInTheDocument()
@@ -37,11 +39,24 @@ test('shows errors from the server', async () => {
     }),
   )
   const onAdded = vi.fn()
-  render(<AddPriceForm onAdded={onAdded} />)
+  render(<AddPriceForm token="test-token" onAdded={onAdded} onSessionExpired={vi.fn()} />)
 
   await userEvent.type(screen.getByLabelText('Crop'), 'Maize')
   await userEvent.click(screen.getByRole('button', { name: 'Add price' }))
 
   expect(await screen.findByText('market is required')).toBeInTheDocument()
   expect(onAdded).not.toHaveBeenCalled()
+})
+
+test('goes back to login when the session has expired', async () => {
+  globalThis.fetch = vi.fn(() =>
+    Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({ error: 'expired' }) }),
+  )
+  const onSessionExpired = vi.fn()
+  render(<AddPriceForm token="old-token" onAdded={vi.fn()} onSessionExpired={onSessionExpired} />)
+
+  await fillForm()
+  await userEvent.click(screen.getByRole('button', { name: 'Add price' }))
+
+  expect(onSessionExpired).toHaveBeenCalled()
 })

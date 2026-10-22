@@ -1,7 +1,14 @@
 const request = require('supertest');
 const app = require('../src/app');
+const { loginAsTestUser } = require('./helpers');
 
 describe('Compare prices with last week', () => {
+  let token;
+
+  beforeAll(async () => {
+    token = await loginAsTestUser();
+  });
+
   test('each price includes last week price and change', async () => {
     const res = await request(app).get('/api/prices');
     res.body.forEach((p) => {
@@ -44,6 +51,7 @@ describe('Compare prices with last week', () => {
   test('a new price has no history yet', async () => {
     const res = await request(app)
       .post('/api/prices')
+      .set('Authorization', `Bearer ${token}`)
       .send({ crop: 'Sorghum', market: 'Huye', district: 'Huye', pricePerKg: 600 });
     expect(res.body.lastWeekPrice).toBeNull();
     expect(res.body.change).toBeNull();
