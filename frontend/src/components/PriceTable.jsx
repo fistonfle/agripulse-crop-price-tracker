@@ -1,3 +1,5 @@
+import PriceChange from './PriceChange.jsx'
+
 function PriceTable({ prices, search = '' }) {
   return (
     <table>
@@ -7,12 +9,13 @@ function PriceTable({ prices, search = '' }) {
           <th>Market</th>
           <th>District</th>
           <th>Price (RWF / kg)</th>
+          <th>Change vs last week</th>
         </tr>
       </thead>
       <tbody>
         {prices.length === 0 && (
           <tr>
-            <td colSpan="4">
+            <td colSpan="5">
               {search ? `No prices found for "${search}"` : 'No prices found.'}
             </td>
           </tr>
@@ -24,6 +27,9 @@ function PriceTable({ prices, search = '' }) {
             <td>{item.district}</td>
             <td>
               <strong>{item.pricePerKg} RWF</strong>
+            </td>
+            <td>
+              <PriceChange change={item.change} />
             </td>
           </tr>
         ))}
