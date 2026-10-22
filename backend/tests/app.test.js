@@ -12,6 +12,7 @@ describe('AgriPulse API', () => {
     const res = await request(app).get('/api/prices');
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(8);
+    res.body.forEach((p) => expect(p.date).toMatch(/^\d{4}-\d{2}-\d{2}$/));
   });
 
   test('filters by market', async () => {
@@ -30,6 +31,7 @@ describe('AgriPulse API', () => {
     const res = await request(app).get('/api/prices/3');
     expect(res.status).toBe(200);
     expect(res.body.crop).toBe('Beans');
+    expect(res.body.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   test('returns 404 for unknown price', async () => {
