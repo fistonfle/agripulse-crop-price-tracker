@@ -6,9 +6,11 @@ const PRICE_SELECT = `
   SELECT p.id, p.crop, p.market, p.district,
          p.price_per_kg AS "pricePerKg",
          p.date,
+         u.name AS "addedBy",
          h.price_per_kg AS "lastWeekPrice",
          p.price_per_kg - h.price_per_kg AS change
   FROM prices p
+  LEFT JOIN users u ON u.id = p.created_by
   LEFT JOIN LATERAL (
     SELECT price_per_kg FROM price_history
     WHERE price_id = p.id
@@ -79,12 +81,13 @@ function validatePrice(entry) {
   return errors;
 }
 
-async function addPrice(entry) {
+// userId is the logged-in user who adds the price
+async function addPrice(entry, userId) {
   const { rows } = await pool.query(
-    `INSERT INTO prices (crop, market, district, price_per_kg)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO prices (crop, market, district, price_per_kg, created_by)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id`,
-    [entry.crop.trim(), entry.market.trim(), entry.district.trim(), entry.pricePerKg],
+    [entry.crop.trim(), entry.market.trim(), entry.district.trim(), entry.pricePerKg, userId],
   );
   return getPriceById(rows[0].id);
 }

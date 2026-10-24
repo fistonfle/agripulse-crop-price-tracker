@@ -9,7 +9,15 @@ const samplePrices = [
 
 // Fake the backend so the tests don't need the API running
 beforeEach(() => {
+  localStorage.clear()
   globalThis.fetch = vi.fn((url) => {
+    if (url === '/api/auth/login') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ user: { id: 1, name: 'Aline Uwase' }, token: 'abc' }),
+      })
+    }
     let data = samplePrices
     if (url === '/api/markets') {
       data = ['Kimironko', 'Nyabugogo']
@@ -72,4 +80,27 @@ test('shows the change since last week', async () => {
   render(<App />)
   expect(await screen.findByText('▲ +50 RWF')).toBeInTheDocument()
   expect(screen.getByText('▼ -20 RWF')).toBeInTheDocument()
+})
+
+test('shows the login form until the user logs in', async () => {
+  render(<App />)
+  expect(screen.getByRole('heading', { name: 'Log in to add prices' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Add price' })).not.toBeInTheDocument()
+
+  await userEvent.type(screen.getByLabelText('Email'), 'aline@example.rw')
+  await userEvent.type(screen.getByLabelText('Password'), 'password123')
+  await userEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+  expect(await screen.findByText('Aline Uwase')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Add price' })).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Log out' }))
+  expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument()
+})
+
+test('stays logged in after a page refresh', async () => {
+  localStorage.setItem('agripulse-auth', JSON.stringify({ user: { id: 1, name: 'Aline Uwase' }, token: 'abc' }))
+  render(<App />)
+  expect(screen.getByText('Aline Uwase')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Add price' })).toBeInTheDocument()
 })

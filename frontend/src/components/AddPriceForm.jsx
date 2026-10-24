@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 const emptyForm = { crop: '', market: '', district: '', pricePerKg: '' }
 
-function AddPriceForm({ onAdded }) {
+function AddPriceForm({ token, onAdded, onSessionExpired }) {
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState([])
   const [message, setMessage] = useState('')
@@ -18,10 +18,16 @@ function AddPriceForm({ onAdded }) {
     try {
       const res = await fetch('/api/prices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...form, pricePerKg: Number(form.pricePerKg) }),
       })
       const data = await res.json()
+
+      // Token missing or expired: go back to the login form
+      if (res.status === 401) {
+        onSessionExpired()
+        return
+      }
 
       if (!res.ok) {
         setErrors(data.errors || ['Could not save the price'])

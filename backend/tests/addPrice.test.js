@@ -1,11 +1,18 @@
 const request = require('supertest');
 const app = require('../src/app');
+const { loginAsTestUser } = require('./helpers');
 
 describe('POST /api/prices', () => {
+  let token;
+
+  beforeAll(async () => {
+    token = await loginAsTestUser();
+  });
+
   test('adds a new price', async () => {
     const newPrice = { crop: 'Sorghum', market: 'Huye', district: 'Huye', pricePerKg: 600 };
 
-    const res = await request(app).post('/api/prices').send(newPrice);
+    const res = await request(app).post('/api/prices').set('Authorization', `Bearer ${token}`).send(newPrice);
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject(newPrice);
     expect(res.body.id).toBe(9);
@@ -23,7 +30,7 @@ describe('POST /api/prices', () => {
   });
 
   test('rejects missing fields', async () => {
-    const res = await request(app).post('/api/prices').send({ crop: 'Maize' });
+    const res = await request(app).post('/api/prices').set('Authorization', `Bearer ${token}`).send({ crop: 'Maize' });
     expect(res.status).toBe(400);
     expect(res.body.errors).toEqual([
       'market is required',
@@ -35,6 +42,7 @@ describe('POST /api/prices', () => {
   test('rejects a negative price', async () => {
     const res = await request(app)
       .post('/api/prices')
+      .set('Authorization', `Bearer ${token}`)
       .send({ crop: 'Maize', market: 'Kimironko', district: 'Gasabo', pricePerKg: -10 });
     expect(res.status).toBe(400);
     expect(res.body.errors).toEqual(['pricePerKg must be a positive number']);
@@ -43,6 +51,7 @@ describe('POST /api/prices', () => {
   test('rejects a price sent as text', async () => {
     const res = await request(app)
       .post('/api/prices')
+      .set('Authorization', `Bearer ${token}`)
       .send({ crop: 'Maize', market: 'Kimironko', district: 'Gasabo', pricePerKg: '500' });
     expect(res.status).toBe(400);
   });
@@ -50,6 +59,7 @@ describe('POST /api/prices', () => {
   test('rejects blank names', async () => {
     const res = await request(app)
       .post('/api/prices')
+      .set('Authorization', `Bearer ${token}`)
       .send({ crop: '   ', market: 'Kimironko', district: 'Gasabo', pricePerKg: 500 });
     expect(res.status).toBe(400);
     expect(res.body.errors).toEqual(['crop is required']);

@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
 import PriceTable from './components/PriceTable.jsx'
 import AddPriceForm from './components/AddPriceForm.jsx'
+import AuthForm from './components/AuthForm.jsx'
+
+const AUTH_KEY = 'agripulse-auth'
+
+// Keep the user logged in after a page refresh
+function loadSavedAuth() {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_KEY))
+  } catch {
+    return null
+  }
+}
 
 function App() {
   const [prices, setPrices] = useState([])
@@ -12,6 +24,26 @@ function App() {
   const [error, setError] = useState('')
   // Changing this number reloads the data (used after adding a price)
   const [refresh, setRefresh] = useState(0)
+  // { user, token } when logged in, otherwise null
+  const [auth, setAuth] = useState(loadSavedAuth)
+
+  function handleLogin(data) {
+    setAuth(data)
+    try {
+      localStorage.setItem(AUTH_KEY, JSON.stringify(data))
+    } catch {
+      // Storage can be blocked (e.g. private mode); the login still works until refresh
+    }
+  }
+
+  function handleLogout() {
+    setAuth(null)
+    try {
+      localStorage.removeItem(AUTH_KEY)
+    } catch {
+      // ignore
+    }
+  }
 
   // Load the market list for the dropdown
   useEffect(() => {
@@ -46,6 +78,15 @@ function App() {
 
   return (
     <main>
+      {auth && (
+        <div className="user-bar">
+          Logged in as <strong>{auth.user.name}</strong>
+          <button type="button" className="link-button" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
+      )}
+
       <h1>🌾 AgriPulse: Rwandan Crop Price Tracker</h1>
       <p>Market prices for farmers and traders across Rwanda.</p>
 
@@ -83,7 +124,15 @@ function App() {
 
       <PriceTable prices={prices} search={crop.trim()} />
 
-      <AddPriceForm onAdded={() => setRefresh(refresh + 1)} />
+      {auth ? (
+        <AddPriceForm
+          token={auth.token}
+          onAdded={() => setRefresh(refresh + 1)}
+          onSessionExpired={handleLogout}
+        />
+      ) : (
+        <AuthForm onLogin={handleLogin} />
+      )}
     </main>
   )
 }
