@@ -30,6 +30,43 @@ Smallholder farmers and local traders in Rwanda often lack access to timely, acc
 4. **Add new prices** — market collectors submit new prices through a form
 5. **Accounts** — register and log in; only logged-in users can add prices, and each price shows who added it
 
+## Screenshots
+
+### Price feed
+All crop prices with the change since last week and the date of each price. Anyone can view it, no login needed.
+
+![Price feed](docs/screenshots/home.png)
+
+### Search by crop
+Typing a crop name filters the table instantly (extra spaces are ignored).
+
+![Search for beans](docs/screenshots/search.png)
+
+### Filter by district
+Pick a market or district to see only the prices there.
+
+![Filter by Gasabo district](docs/screenshots/filter-district.png)
+
+### No results
+A clear message when nothing matches the search.
+
+![No results for mango](docs/screenshots/no-results.png)
+
+### Create an account
+Market collectors register with a name, email and password (at least 8 characters).
+
+![Create account form](docs/screenshots/register.png)
+
+### Logged in: add a new price
+After logging in, the "Add a new price" form appears. New prices are saved in the database and show as **New** until there is history for them.
+
+![Logged in and adding a price](docs/screenshots/logged-in.png)
+
+### On a phone
+The page adapts to small screens, and the table scrolls sideways.
+
+<img src="docs/screenshots/mobile.png" alt="AgriPulse on a phone" width="300">
+
 ## Technology Stack
 
 | Layer | Technology |
@@ -50,6 +87,7 @@ agripulse-crop-price-tracker/
 ├── .github/workflows/
 │   └── ci.yml              # CI: lint, test, build on PRs
 ├── docker-compose.yml      # PostgreSQL database
+├── docs/screenshots/       # Images used in this README
 ├── backend/                # Express REST API
 │   ├── db/                 # schema.sql (tables), seed.sql (sample data)
 │   ├── .env.example        # Settings (copy to .env)

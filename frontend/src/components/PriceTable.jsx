@@ -13,41 +13,44 @@ function formatDate(dateStr) {
 
 function PriceTable({ prices, search = '' }) {
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>Crop</th>
-          <th>Market</th>
-          <th>District</th>
-          <th>Price (RWF / kg)</th>
-          <th>Change vs last week</th>
-          <th>Last updated</th>
-        </tr>
-      </thead>
-      <tbody>
-        {prices.length === 0 && (
+    // The wrapper lets the table scroll sideways on small phone screens
+    <div className="table-wrap">
+      <table>
+        <thead>
           <tr>
-            <td colSpan="6">
-              {search ? `No prices found for "${search}"` : 'No prices found.'}
-            </td>
+            <th>Crop</th>
+            <th>Market</th>
+            <th>District</th>
+            <th>Price (RWF / kg)</th>
+            <th>Change vs last week</th>
+            <th>Last updated</th>
           </tr>
-        )}
-        {prices.map((item) => (
-          <tr key={item.id}>
-            <td>{item.crop}</td>
-            <td>{item.market}</td>
-            <td>{item.district}</td>
-            <td>
-              <strong>{item.pricePerKg} RWF</strong>
-            </td>
-            <td>
-              <PriceChange change={item.change} />
-            </td>
-            <td>{formatDate(item.date)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {prices.length === 0 && (
+            <tr>
+              <td colSpan="6">
+                {search ? `No prices found for "${search}"` : 'No prices found.'}
+              </td>
+            </tr>
+          )}
+          {prices.map((item) => (
+            <tr key={item.id}>
+              <td>{item.crop}</td>
+              <td>{item.market}</td>
+              <td>{item.district}</td>
+              <td>
+                <strong>{item.pricePerKg} RWF</strong>
+              </td>
+              <td>
+                <PriceChange change={item.change} />
+              </td>
+              <td>{formatDate(item.date)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

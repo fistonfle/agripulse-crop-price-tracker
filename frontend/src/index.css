@@ -50,9 +50,20 @@ tr:hover {
   color: #c0392b;
 }
 
+/* On small screens the table scrolls sideways instead of being cut off */
+.table-wrap {
+  overflow-x: auto;
+}
+
 @media (max-width: 600px) {
   body {
     padding: 16px;
+  }
+
+  th,
+  td {
+    padding: 10px 8px;
+    white-space: nowrap;
   }
 }
 
