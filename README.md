@@ -78,6 +78,7 @@ The page adapts to small screens, and the table scrolls sideways.
 | Testing | Jest + Supertest (backend), Vitest + React Testing Library (frontend) |
 | Linting | ESLint |
 | CI | GitHub Actions |
+| Containers | Docker (multi-stage builds), Docker Compose |
 | Version control | Git & GitHub |
 
 ## Project Structure
@@ -86,7 +87,10 @@ The page adapts to small screens, and the table scrolls sideways.
 agripulse-crop-price-tracker/
 ├── .github/workflows/
 │   └── ci.yml              # CI: lint, test, build on PRs
-├── docker-compose.yml      # PostgreSQL database
+├── Dockerfile              # Builds the API image (multi-stage, non-root)
+├── .dockerignore           # Files kept out of the API build context
+├── docker-compose.yml      # Runs database + API + web app together
+├── .env.example            # Settings for docker compose (copy to .env)
 ├── docs/screenshots/       # Images used in this README
 ├── backend/                # Express REST API
 │   ├── db/                 # schema.sql (tables), seed.sql (sample data)
@@ -103,6 +107,9 @@ agripulse-crop-price-tracker/
 │   │   └── priceChange.test.js # Price comparison tests
 │   └── package.json
 ├── frontend/               # React + Vite app
+│   ├── Dockerfile          # Builds the web image (nginx, non-root)
+│   ├── nginx.conf          # Serves the build, proxies /api to the API
+│   ├── .dockerignore
 │   ├── src/
 │   │   ├── App.jsx         # Main page: search, filter, table
 │   │   ├── App.test.jsx    # UI tests
@@ -122,8 +129,8 @@ agripulse-crop-price-tracker/
 ### Prerequisites
 
 - **Git**: [git-scm.com/downloads](https://git-scm.com/downloads)
-- **Docker Desktop** (runs the database): [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
-- **Node.js 20 or newer** (npm comes with it): download the **LTS** version from [nodejs.org](https://nodejs.org/)
+- **Docker Desktop** (runs the database, or the whole app): [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
+- **Node.js 20 or newer** (npm comes with it) - only needed for development, not for [Run with Docker](#run-with-docker): download the **LTS** version from [nodejs.org](https://nodejs.org/)
   - **Windows**: run the `.msi` installer and keep the default options
   - **macOS**: run the `.pkg` installer, or use Homebrew: `brew install node`
 
@@ -137,7 +144,42 @@ git --version
 
 On Windows, use **PowerShell** or **Git Bash**. On macOS, use **Terminal**.
 
-### Run locally
+### Run with Docker
+
+This is the easiest way to see the whole app. Docker builds the API and the frontend, starts PostgreSQL, and connects the three together. You do not need Node.js installed for this, only **Docker Desktop** running.
+
+```bash
+git clone https://github.com/fistonfle/agripulse-crop-price-tracker.git
+cd agripulse-crop-price-tracker
+docker compose up --build
+```
+
+The first time takes a few minutes because Docker downloads the base images. When the logs show `AgriPulse API running at http://localhost:3000`, open **http://localhost:5173** in your browser. The sample prices are already loaded, so the table has data straight away.
+
+Three containers start:
+
+| Service | What it is | Port |
+| ------- | ---------- | ---- |
+| `db` | PostgreSQL 16, data saved in the `db-data` volume | 5433 |
+| `backend` | the Express API (`Dockerfile`) | 3000 |
+| `frontend` | the React build served by nginx (`frontend/Dockerfile`) | 5173 |
+
+They share a Docker network called `agripulse`, so the API reaches the database as `db:5432` and nginx sends `/api` requests to `backend:3000`.
+
+Useful commands:
+
+```bash
+docker compose up -d --build    # start in the background
+docker compose ps               # see if the services are healthy
+docker compose logs -f backend  # read the API logs
+docker compose down             # stop everything (data is kept)
+docker compose down -v          # stop and delete the database data
+docker compose up -d db         # only the database, for development
+```
+
+The settings (database user, password and `JWT_SECRET`) are environment variables with defaults in `docker-compose.yml`, so `docker compose up` works with no setup. To change them, copy `.env.example` to `.env`. `.env` is in `.gitignore` and `.dockerignore`, so passwords never end up inside an image.
+
+### Run locally (for development)
 
 You need **two terminals**: one for the backend, one for the frontend.
 
@@ -149,7 +191,7 @@ cd agripulse-crop-price-tracker
 **Step 1: start the database** (once; it keeps running in the background)
 
 ```bash
-docker compose up -d
+docker compose up -d db
 ```
 
 This starts PostgreSQL on port **5433** and creates two databases: `agripulse` (the app) and `agripulse_test` (automated tests).
@@ -181,13 +223,12 @@ Open http://localhost:5173 in your browser. Vite forwards `/api` requests to the
 To check that the backend is running, open http://localhost:3000/health. You should see `{"status":"ok","database":"ok"}`.
 
 To stop the database: `docker compose down` (your data is kept). To delete the data too: `docker compose down -v`.
-To check that the backend is running, open http://localhost:3000/health. You should see `{"status":"ok"}`.
 
 To stop either app, press `Ctrl + C` in its terminal.
 
 ### Run lint and tests
 
-The backend tests need the database running (`docker compose up -d`). They use the separate `agripulse_test` database, so your app data is safe.
+The backend tests need the database running (`docker compose up -d db`). They use the separate `agripulse_test` database, so your app data is safe.
 
 ```bash
 cd backend && npm run lint && npm test
@@ -205,10 +246,14 @@ The same checks run automatically on every pull request through GitHub Actions (
 | `EADDRINUSE: address already in use :::3000` | Another program is using port 3000 (often an old backend still running). Close it with `Ctrl + C` in that terminal. Or find it: `lsof -i :3000` (macOS) / `netstat -ano \| findstr :3000` (Windows). |
 | Vite starts on port 5174 instead of 5173 | Port 5173 is busy. That's fine, just open the URL Vite prints. |
 | Page shows "Could not load prices. Is the backend running?" | The backend isn't running. Start it in Terminal 1 (`cd backend && npm run dev`) and refresh the page. |
-| Health shows `"database":"unreachable"` or `ECONNREFUSED ...:5433` | The database isn't running. Start Docker Desktop, then run `docker compose up -d` in the project root. |
+| Health shows `"database":"unreachable"` or `ECONNREFUSED ...:5433` | The database isn't running. Start Docker Desktop, then run `docker compose up -d db` in the project root. |
 | `relation "prices" does not exist` | The tables weren't created yet. Run `npm run db:setup` in `backend/`. |
 | "Please log in first" or you get logged out | Your login token is missing or expired (after 7 days). Log in again. |
 | `JWT_SECRET is not set` | Copy `backend/.env.example` to `backend/.env`. |
+| `docker: Cannot connect to the Docker daemon` | Docker Desktop isn't running. Start it, wait for the whale icon to stop animating, then try again. |
+| `Bind for 0.0.0.0:3000 failed: port is already allocated` | A backend started with `npm run dev` is still using port 3000. Stop it with `Ctrl + C`, then `docker compose up` again. |
+| `host not found in upstream "backend"` in the web logs | The API container isn't up. Check `docker compose ps`; if `backend` is unhealthy, read `docker compose logs backend`. |
+| The app loads but the table is empty after `docker compose up` | The database volume was created before the sample data existed. Reset it: `docker compose down -v && docker compose up --build`. |
 | `Cannot find module ...` | Dependencies aren't installed. Run `npm install` in that folder. |
 | Changes don't show up | The frontend reloads automatically. For the backend, `npm run dev` restarts on save. If you used `npm start`, stop it and run again. |
 
