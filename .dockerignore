@@ -1,0 +1,40 @@
+# Files Docker should not copy into the image
+
+# Git and CI
+.git
+.gitignore
+.github
+
+# Installed by "npm ci" inside the image
+node_modules
+**/node_modules
+
+# The frontend has its own Dockerfile
+frontend
+
+# Build output
+**/dist
+
+# Secrets - these come from environment variables instead
+**/.env
+**/.env.*
+
+# Tests and lint config (CI runs those, the image does not need them)
+**/tests
+**/*.test.js
+**/eslint.config.js
+**/coverage
+
+# Logs, editor and Mac files
+**/*.log
+**/.DS_Store
+.vscode
+.idea
+
+# Docker files and docs
+Dockerfile
+.dockerignore
+docker-compose.yml
+docs
+README.md
+LICENSE
