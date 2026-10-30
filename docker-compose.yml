@@ -18,9 +18,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agripulse}
       POSTGRES_DB: ${POSTGRES_DB:-agripulse}
     ports:
-      # 5434 on your computer -> 5432 in the container (so it does not clash
-      # with a PostgreSQL you may already have installed)
-      - "5434:5432"
+      # 5433 on your computer -> 5432 in the container (so it does not clash
+      # with a PostgreSQL you may already have installed). If 5433 is taken on
+      # your machine too, put DB_PORT=5434 in your .env instead of editing this.
+      - "${DB_PORT:-5433}:5432"
     volumes:
       # Named volume, so the data is still there after "docker compose down"
       - db-data:/var/lib/postgresql/data
