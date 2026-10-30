@@ -177,7 +177,7 @@ docker compose down -v          # stop and delete the database data
 docker compose up -d db         # only the database, for development
 ```
 
-The settings (database user, password and `JWT_SECRET`) are environment variables with defaults in `docker-compose.yml`, so `docker compose up` works with no setup. To change them, copy `.env.example` to `.env`. `.env` is in `.gitignore` and `.dockerignore`, so passwords never end up inside an image.
+The settings (database user, password, `JWT_SECRET`, and `DB_PORT` if 5433 is already taken on your computer) are environment variables with defaults in `docker-compose.yml`, so `docker compose up` works with no setup. To change them, copy `.env.example` to `.env`. `.env` is in `.gitignore` and `.dockerignore`, so passwords never end up inside an image.
 
 ### Run locally (for development)
 
