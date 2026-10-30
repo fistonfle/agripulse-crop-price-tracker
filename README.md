@@ -278,6 +278,8 @@ The same checks run automatically on every pull request through GitHub Actions (
 
 Our backlog is tracked on the GitHub Projects board: [AgriPulse Board](https://github.com/users/fistonfle/projects/4/views/1)
 
+Task allocation and meeting notes are in the team tracking sheet: [AgriPulse task sheet](https://docs.google.com/spreadsheets/d/1NnRQ9JiBe6azZYSqSptSIRl31XnBaPDXTkgDA3oInkQ/edit?gid=0#gid=0)
+
 ## License
 
 This project is licensed under the MIT License — see [LICENSE](./LICENSE).
