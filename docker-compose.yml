@@ -58,6 +58,13 @@ services:
       db:
         # Wait until the database really accepts connections
         condition: service_healthy
+    healthcheck:
+      # /health also checks the database, so this goes green only when both work
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     networks:
       - agripulse
 
@@ -76,10 +83,14 @@ services:
       backend:
         # nginx looks up "backend" when it starts, so the API must be up first
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     networks:
       - agripulse
-
-# The backend and frontend health checks are in their Dockerfiles
 
 volumes:
   db-data:
