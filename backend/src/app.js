@@ -1,4 +1,8 @@
 const express = require('express');
+
+// Deliberate lint error for the Part 3 demo: this variable is never used,
+// so ESLint fails and the merge is blocked. Removed in the next commit.
+const unusedVariable = 'ci demo';
 const pool = require('./db');
 const {
   filterPrices,
