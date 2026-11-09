@@ -1,0 +1,9 @@
+---
+# Ansible collections used by the roles. Install them once with:
+#   ansible-galaxy collection install -r requirements.yml
+# (The full "ansible" pip package already includes both of them.)
+collections:
+  - name: community.general   # ufw (firewall) module
+    version: ">=8.0.0"
+  - name: community.docker    # docker_compose_v2 module
+    version: ">=3.10.0"
