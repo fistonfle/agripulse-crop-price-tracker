@@ -1,0 +1,95 @@
+---
+# Host firewall (ufw) and SSH hardening.
+# The order matters so that we never lock ourselves out:
+#   1. allow SSH in the firewall  2. only then turn the firewall on
+#   3. check a key is installed   4. only then turn password login off
+
+# ---------------- Firewall ----------------
+- name: Install ufw
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    lock_timeout: 300
+
+- name: Allow SSH (rate limited, so repeated failed logins get blocked)
+  community.general.ufw:
+    rule: limit
+    port: "22"
+    proto: tcp
+    from_ip: "{{ agripulse_ssh_allowed_from }}"
+    comment: SSH
+
+- name: Allow the website port
+  community.general.ufw:
+    rule: allow
+    port: "{{ agripulse_app_port | string }}"
+    proto: tcp
+    comment: AgriPulse website
+
+- name: Block all other incoming traffic by default
+  community.general.ufw:
+    default: deny
+    direction: incoming
+
+- name: Allow all outgoing traffic (package downloads, git, image pulls)
+  community.general.ufw:
+    default: allow
+    direction: outgoing
+
+- name: Turn the firewall on
+  community.general.ufw:
+    state: enabled
+
+# ---------------- SSH hardening ----------------
+- name: Check that the admin user already has an SSH key installed
+  # If there is no key, turning password login off would lock everyone out.
+  ansible.builtin.stat:
+    path: "/home/{{ ansible_user }}/.ssh/authorized_keys"
+  register: security_authorized_keys
+
+- name: Stop here if there is no SSH key (protects against a lock-out)
+  ansible.builtin.assert:
+    that:
+      - security_authorized_keys.stat.exists
+      - security_authorized_keys.stat.size > 0
+    fail_msg: >-
+      No authorized_keys file for {{ ansible_user }}. Not hardening SSH,
+      because password login would be turned off with no key to use.
+    quiet: true
+
+- name: Check that sshd reads the sshd_config.d folder
+  ansible.builtin.command: grep -Eq '^Include[[:space:]]+/etc/ssh/sshd_config.d/\*\.conf' /etc/ssh/sshd_config
+  changed_when: false
+
+- name: Install the SSH hardening settings
+  # The file name starts with 00 on purpose: sshd uses the FIRST value it
+  # reads, so this wins over files like 50-cloud-init.conf.
+  ansible.builtin.template:
+    src: sshd_hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/00-agripulse-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    # Refuse to install a file that sshd cannot parse
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Reload sshd
+
+- name: Apply the SSH settings now, before the checks below
+  # reload (not restart) keeps the current Ansible connection alive
+  ansible.builtin.meta: flush_handlers
+
+- name: Read the SSH settings sshd will really use
+  ansible.builtin.command: /usr/sbin/sshd -T
+  register: security_sshd_effective
+  changed_when: false
+
+- name: Confirm password login and root login are off
+  ansible.builtin.assert:
+    that:
+      - "'passwordauthentication no' in security_sshd_effective.stdout_lines"
+      - "'permitrootlogin no' in security_sshd_effective.stdout_lines"
+      - "'pubkeyauthentication yes' in security_sshd_effective.stdout_lines"
+    fail_msg: sshd is not using the hardened settings. Check /etc/ssh/sshd_config.d/.
+    quiet: true

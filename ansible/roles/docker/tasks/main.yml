@@ -1,0 +1,37 @@
+---
+# Installs Docker Engine and the Compose plugin from Ubuntu's own repositories.
+# The Terraform cloud-init script installs docker.io on first boot too, so these
+# tasks usually find it already there and report "ok".
+
+- name: Wait for the first-boot setup (cloud-init) to finish
+  # cloud-init may still be running apt when we connect. Waiting here avoids
+  # "could not get lock /var/lib/dpkg/lock" errors.
+  ansible.builtin.command: cloud-init status --wait
+  register: docker_cloud_init
+  changed_when: false
+  # Exit code 2 only means "finished with harmless warnings"; 1 is a real error
+  failed_when: docker_cloud_init.rc not in [0, 2]
+
+- name: Install Docker, the Compose plugin and git
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+      - git
+      - ca-certificates
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+    lock_timeout: 300
+
+- name: Make sure Docker starts at boot and is running
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Let the admin user run docker without sudo
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true

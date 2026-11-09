@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+# Used together with docker-compose.yml on the VM:
+#   docker compose -f docker-compose.yml -f docker-compose.vm.yml up -d
+# "!override" replaces the ports list instead of adding to it (Compose 2.24+).
+services:
+  db:
+    ports: !override
+      - "127.0.0.1:{{ agripulse_db_port }}:5432"
+  backend:
+    ports: !override
+      - "127.0.0.1:{{ agripulse_api_port }}:3000"
