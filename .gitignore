@@ -20,3 +20,6 @@ build/
 
 # Environment variables & secrets
 .env
+
+# Ansible
+ansible/*.retry
