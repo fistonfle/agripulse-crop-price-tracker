@@ -1,0 +1,152 @@
+
+       _               _
+   ___| |__   ___  ___| | _______   __
+  / __| '_ \ / _ \/ __| |/ / _ \ \ / /
+ | (__| | | |  __/ (__|   < (_) \ V /
+  \___|_| |_|\___|\___|_|\_\___/ \_/
+
+By Prisma Cloud | version: 3.4.3 
+
+terraform scan results:
+
+Passed checks: 21, Failed checks: 2, Skipped checks: 0
+
+Check: CKV_AZURE_183: "Ensure that VNET uses local DNS addresses"
+	PASSED for resource: azurerm_virtual_network.app
+	File: \main.tf:23-30
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/azr-networking-183
+[0mCheck: CKV_AZURE_182: "Ensure that VNET has at least 2 connected DNS Endpoints"
+	PASSED for resource: azurerm_virtual_network.app
+	File: \main.tf:23-30
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/azr-networking-182
+[0mCheck: CKV_AZURE_160: "Ensure that HTTP (port 80) access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_group.app
+	File: \main.tf:39-45
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-azure-http-port-80-access-from-the-internet-is-restricted
+[0mCheck: CKV_AZURE_9: "Ensure that RDP access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_group.app
+	File: \main.tf:39-45
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-2
+[0mCheck: CKV_AZURE_10: "Ensure that SSH access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_group.app
+	File: \main.tf:39-45
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-3
+[0mCheck: CKV_AZURE_77: "Ensure that UDP Services are restricted from the Internet "
+	PASSED for resource: azurerm_network_security_group.app
+	File: \main.tf:39-45
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-that-udp-services-are-restricted-from-the-internet
+[0mCheck: CKV_AZURE_160: "Ensure that HTTP (port 80) access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_rule.web
+	File: \main.tf:47-59
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-azure-http-port-80-access-from-the-internet-is-restricted
+[0mCheck: CKV_AZURE_9: "Ensure that RDP access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_rule.web
+	File: \main.tf:47-59
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-2
+[0mCheck: CKV_AZURE_10: "Ensure that SSH access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_rule.web
+	File: \main.tf:47-59
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-3
+[0mCheck: CKV_AZURE_77: "Ensure that UDP Services are restricted from the Internet "
+	PASSED for resource: azurerm_network_security_rule.web
+	File: \main.tf:47-59
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-that-udp-services-are-restricted-from-the-internet
+[0mCheck: CKV_AZURE_160: "Ensure that HTTP (port 80) access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_rule.ssh
+	File: \main.tf:61-73
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-azure-http-port-80-access-from-the-internet-is-restricted
+[0mCheck: CKV_AZURE_9: "Ensure that RDP access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_rule.ssh
+	File: \main.tf:61-73
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-2
+[0mCheck: CKV_AZURE_10: "Ensure that SSH access is restricted from the internet"
+	PASSED for resource: azurerm_network_security_rule.ssh
+	File: \main.tf:61-73
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-3
+[0mCheck: CKV_AZURE_77: "Ensure that UDP Services are restricted from the Internet "
+	PASSED for resource: azurerm_network_security_rule.ssh
+	File: \main.tf:61-73
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-that-udp-services-are-restricted-from-the-internet
+[0mCheck: CKV_AZURE_118: "Ensure that Network Interfaces disable IP forwarding"
+	PASSED for resource: azurerm_network_interface.app
+	File: \main.tf:90-103
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-that-network-interfaces-disable-ip-forwarding
+[0mCheck: CKV_AZURE_1: "Ensure Azure Instance does not use basic authentication(Use SSH Key Instead)"
+	PASSED for resource: azurerm_linux_virtual_machine.app
+	File: \main.tf:105-133
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-1
+[0mCheck: CKV_AZURE_178: "Ensure linux VM enables SSH with keys for secure communication"
+	PASSED for resource: azurerm_linux_virtual_machine.app
+	File: \main.tf:105-133
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-general-policies/azr-general-178
+[0mCheck: CKV_AZURE_179: "Ensure VM agent is installed"
+	PASSED for resource: azurerm_linux_virtual_machine.app
+	File: \main.tf:105-133
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-general-policies/azr-general-179
+[0mCheck: CKV_AZURE_149: "Ensure that Virtual machine does not enable password authentication"
+	PASSED for resource: azurerm_linux_virtual_machine.app
+	File: \main.tf:105-133
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-general-policies/ensure-azure-virtual-machine-does-not-enable-password-authentication
+[0mCheck: CKV_AZURE_92: "Ensure that Virtual Machines use managed disks"
+	PASSED for resource: azurerm_linux_virtual_machine.app
+	File: \main.tf:105-133
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-general-policies/ensure-that-virtual-machines-use-managed-disks
+[0mCheck: CKV2_AZURE_31: "Ensure VNET subnet is configured with a Network Security Group (NSG)"
+	PASSED for resource: azurerm_subnet.app
+	File: \main.tf:32-37
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-general-policies/bc-azure-2-31
+[0mCheck: CKV_AZURE_50: "Ensure Virtual Machine Extensions are not Installed"
+	FAILED for resource: azurerm_linux_virtual_machine.app
+	File: \main.tf:105-133
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-general-policies/bc-azr-general-14
+[0m
+		[37m105 | [33mresource "azurerm_linux_virtual_machine" "app" {
+		[37m106 | [33m  name                            = "${var.resource_group_name}-vm"
+		[37m107 | [33m  resource_group_name             = azurerm_resource_group.app.name
+		[37m108 | [33m  location                        = azurerm_resource_group.app.location
+		[37m109 | [33m  size                            = var.vm_size
+		[37m110 | [33m  admin_username                  = var.admin_username
+		[37m111 | [33m  disable_password_authentication = true
+		[37m112 | [33m  network_interface_ids           = [azurerm_network_interface.app.id]
+		[37m113 | [33m  custom_data                     = base64encode(templatefile("${path.module}/cloud-init.yaml.tftpl", { admin_username = var.admin_username }))
+		[37m114 | [33m
+		[37m115 | [33m  admin_ssh_key {
+		[37m116 | [33m    username   = var.admin_username
+		[37m117 | [33m    public_key = var.admin_ssh_public_key
+		[37m118 | [33m  }
+		[37m119 | [33m
+		[37m120 | [33m  os_disk {
+		[37m121 | [33m    caching              = "ReadWrite"
+		[37m122 | [33m    storage_account_type = "Standard_LRS"
+		[37m123 | [33m  }
+		[37m124 | [33m
+		[37m125 | [33m  source_image_reference {
+		[37m126 | [33m    publisher = "Canonical"
+		[37m127 | [33m    offer     = "0001-com-ubuntu-server-jammy"
+		[37m128 | [33m    sku       = "22_04-lts-gen2"
+		[37m129 | [33m    version   = "latest"
+		[37m130 | [33m  }
+		[37m131 | [33m
+		[37m132 | [33m  tags = var.tags
+		[37m133 | [33m}
+
+Check: CKV_AZURE_119: "Ensure that Network Interfaces don't use public IPs"
+	FAILED for resource: azurerm_network_interface.app
+	File: \main.tf:90-103
+	Guide: [1mhttps://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-that-network-interfaces-dont-use-public-ips
+[0m
+		[37m90  | [33mresource "azurerm_network_interface" "app" {
+		[37m91  | [33m  name                = "${var.resource_group_name}-nic"
+		[37m92  | [33m  location            = azurerm_resource_group.app.location
+		[37m93  | [33m  resource_group_name = azurerm_resource_group.app.name
+		[37m94  | [33m
+		[37m95  | [33m  ip_configuration {
+		[37m96  | [33m    name                          = "internal"
+		[37m97  | [33m    subnet_id                     = azurerm_subnet.app.id
+		[37m98  | [33m    private_ip_address_allocation = "Dynamic"
+		[37m99  | [33m    public_ip_address_id          = azurerm_public_ip.app.id
+		[37m100 | [33m  }
+		[37m101 | [33m
+		[37m102 | [33m  tags = var.tags
+		[37m103 | [33m}
+
