@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+# SSH hardening for the AgriPulse VM. Key-based login still works.
+
+# Keys only: no passwords
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+
+# Nobody logs in as root
+PermitRootLogin no
+
+# Only the admin user that Ansible connects as may log in
+AllowUsers {{ ansible_user }}
+
+# Make guessing harder and give up on idle logins sooner
+MaxAuthTries 3
+LoginGraceTime 30
+
+# Turn off features this server does not need
+X11Forwarding no
+AllowAgentForwarding no

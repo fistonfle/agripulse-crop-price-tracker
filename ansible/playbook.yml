@@ -1,0 +1,58 @@
+---
+# Configures the Azure VM created by Terraform and deploys AgriPulse on it.
+#
+#   ansible-playbook playbook.yml
+#
+# It is safe to run again and again: each task only changes something when the
+# VM is not already in the wanted state.
+
+# ---- Play 1: check the inputs on your own computer before touching the VM ----
+- name: Check the inputs before connecting
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Make sure the VM address was provided
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.env', 'AGRIPULSE_VM_IP') | length > 0
+        fail_msg: >-
+          AGRIPULSE_VM_IP is not set. Run:
+          export AGRIPULSE_VM_IP="$(terraform -chdir=../terraform output -raw vm_public_ip)"
+        quiet: true
+
+    - name: Make sure the secrets were provided and are not weak
+      ansible.builtin.assert:
+        that:
+          - agripulse_postgres_password | length >= 16
+          - agripulse_jwt_secret | length >= 16
+          - agripulse_postgres_password != 'agripulse'
+          - agripulse_jwt_secret != 'local-development-secret'
+          - agripulse_postgres_password is match('^[A-Za-z0-9_.-]+$')
+          - agripulse_jwt_secret is match('^[A-Za-z0-9_.-]+$')
+        fail_msg: >-
+          AGRIPULSE_POSTGRES_PASSWORD and AGRIPULSE_JWT_SECRET must be set to
+          unique values of at least 16 characters (not the development defaults),
+          using only letters, digits, dot, dash and underscore (the password is
+          placed inside a database URL).
+          Create them with: export AGRIPULSE_POSTGRES_PASSWORD="$(openssl rand -hex 16)"
+        quiet: true
+      no_log: true
+
+# ---- Play 2: configure the VM ----
+- name: Configure the AgriPulse VM
+  hosts: agripulse
+  become: true
+  # The roles do not use gathered facts, so skip the slow fact gathering
+  gather_facts: false
+  roles:
+    # 1. Docker and the tools the app needs
+    - role: docker
+      tags: [docker]
+    # 2. Firewall and SSH hardening (before the long build, so problems show early)
+    - role: security
+      tags: [security]
+    # 3. Get the code, write .env, start the containers, check they work
+    - role: app
+      tags: [app]

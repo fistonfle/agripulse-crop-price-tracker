@@ -1,0 +1,30 @@
+---
+# Settings shared by every role. None of these are secrets.
+
+# ---- Application ----
+# The repository the VM clones, and the branch or tag to deploy
+agripulse_repo_url: https://github.com/fistonfle/agripulse-crop-price-tracker.git
+agripulse_repo_version: main
+# Where the code and the .env file live on the VM
+agripulse_app_dir: /opt/agripulse
+# The port the website is served on. Keep it equal to app_port in terraform/variables.tf
+agripulse_app_port: 5173
+# The API port. It is only reachable from the VM itself (see the app role)
+agripulse_api_port: 3000
+agripulse_db_port: 5433
+
+# ---- Database ----
+agripulse_postgres_user: agripulse
+agripulse_postgres_db: agripulse
+
+# ---- Secrets: read from environment variables on YOUR computer ----
+# They are written to the VM's .env file (mode 0600) and never to this repository.
+# The playbook stops early if they are missing or too weak.
+agripulse_postgres_password: "{{ lookup('ansible.builtin.env', 'AGRIPULSE_POSTGRES_PASSWORD') }}"
+agripulse_jwt_secret: "{{ lookup('ansible.builtin.env', 'AGRIPULSE_JWT_SECRET') }}"
+
+# ---- Firewall and SSH ----
+# Who may open an SSH connection through the VM's own firewall.
+# "any" is fine because the Azure network security group already limits SSH to
+# your IP. Set it to your IP (for example 198.51.100.10) for a second layer.
+agripulse_ssh_allowed_from: any

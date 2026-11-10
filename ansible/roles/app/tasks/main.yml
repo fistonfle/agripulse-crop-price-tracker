@@ -1,0 +1,81 @@
+---
+# Deploys the app with the repository's own docker-compose.yml.
+
+- name: Get the application code
+  ansible.builtin.git:
+    repo: "{{ agripulse_repo_url }}"
+    dest: "{{ agripulse_app_dir }}"
+    version: "{{ agripulse_repo_version }}"
+    update: true
+  register: app_repo
+
+- name: Write the .env file with the real secrets
+  # Mode 0600: only root can read it. no_log keeps the secrets out of the output.
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ agripulse_app_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Keep the API and the database private to the VM
+  # docker-compose.yml publishes ports 3000 and 5433 on every network interface,
+  # which is handy on a laptop. Docker also bypasses the ufw firewall for
+  # published ports, so on the VM this override binds them to 127.0.0.1 only.
+  # Only the website port stays public.
+  ansible.builtin.template:
+    src: docker-compose.vm.yml.j2
+    dest: "{{ agripulse_app_dir }}/docker-compose.vm.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  register: app_override
+
+- name: Build the images and start the containers
+  # Rebuilds only when the code or the override changed, so a second run that
+  # changes nothing reports "ok". "wait" returns once every healthcheck passes.
+  community.docker.docker_compose_v2:
+    project_src: "{{ agripulse_app_dir }}"
+    files:
+      - docker-compose.yml
+      - docker-compose.vm.yml
+    state: present
+    build: "{{ 'always' if (app_repo.changed or app_override.changed) else 'policy' }}"
+    remove_orphans: true
+    wait: true
+    wait_timeout: 300
+
+# ---------------- Checks ----------------
+- name: Check the API health endpoint (also tests the database)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ agripulse_api_port }}/health"
+    return_content: true
+  register: app_health
+  until: app_health.status == 200 and app_health.json.status == 'ok'
+  retries: 12
+  delay: 5
+  changed_when: false
+
+- name: Check the website and the API through nginx
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ agripulse_app_port }}{{ item }}"
+    status_code: 200
+  loop:
+    - /
+    - /api/prices
+  changed_when: false
+
+- name: List the TCP ports the VM is listening on
+  ansible.builtin.command: ss -H -ltn
+  register: app_listeners
+  changed_when: false
+
+- name: Confirm the API and the database are not open to the network
+  vars:
+    app_public_pattern: '(0\.0\.0\.0|\*|\[::\]):({{ agripulse_api_port }}|{{ agripulse_db_port }})\s'
+  ansible.builtin.assert:
+    that:
+      - app_listeners.stdout_lines | select('search', app_public_pattern) | list | length == 0
+    fail_msg: The API or the database is listening on all network interfaces.
+    success_msg: Only the website port is public. The API and the database listen on 127.0.0.1.
