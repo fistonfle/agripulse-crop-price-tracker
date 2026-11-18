@@ -1,0 +1,234 @@
+name: CD
+
+# Only a merge to main deploys. Nothing else in this file runs on a branch.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time. A second merge waits instead of racing the first.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # Azure login with OIDC, so no client secret is stored
+
+jobs:
+  # 1. The same lint, test and build checks that guard a pull request.
+  checks:
+    name: CI checks
+    uses: ./.github/workflows/ci.yml
+
+  # 2. Read the addresses of the infrastructure from the Terraform state.
+  infrastructure:
+    name: Read infrastructure outputs
+    needs: checks
+    runs-on: ubuntu-latest
+    outputs:
+      acr_login_server: ${{ steps.tf.outputs.acr_login_server }}
+      app_private_ip: ${{ steps.tf.outputs.app_private_ip }}
+      bastion_public_ip: ${{ steps.tf.outputs.bastion_public_ip }}
+      database_fqdn: ${{ steps.tf.outputs.database_fqdn }}
+      app_url: ${{ steps.tf.outputs.app_url }}
+      resource_group_name: ${{ steps.tf.outputs.resource_group_name }}
+      bastion_nsg_name: ${{ steps.tf.outputs.bastion_nsg_name }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_wrapper: false
+
+      - name: Read the outputs
+        id: tf
+        working-directory: terraform
+        run: |
+          set -euo pipefail
+          terraform init -input=false
+          for name in acr_login_server app_private_ip bastion_public_ip database_fqdn app_url resource_group_name bastion_nsg_name; do
+            value="$(terraform output -raw "$name")"
+            if [ -z "$value" ]; then
+              echo "::error::Terraform output $name is empty. Has the infrastructure been applied?"
+              exit 1
+            fi
+            echo "$name=$value" >> "$GITHUB_OUTPUT"
+          done
+
+  # 3. Build both images and push them to the private registry.
+  build-and-push:
+    name: Build and push images
+    needs: infrastructure
+    runs-on: ubuntu-latest
+    env:
+      ACR: ${{ needs.infrastructure.outputs.acr_login_server }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign in to the container registry
+        run: |
+          set -euo pipefail
+          az acr login --name "${ACR%%.*}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR }}/agripulse-api:${{ github.sha }}
+            ${{ env.ACR }}/agripulse-api:latest
+          cache-from: type=gha,scope=agripulse-api
+          cache-to: type=gha,mode=max,scope=agripulse-api
+
+      - name: Build and push the Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR }}/agripulse-web:${{ github.sha }}
+            ${{ env.ACR }}/agripulse-web:latest
+          cache-from: type=gha,scope=agripulse-web
+          cache-to: type=gha,mode=max,scope=agripulse-web
+
+  # 4. Tell the VM to pull the tag that was just pushed and restart.
+  deploy:
+    name: Deploy to production
+    needs: [infrastructure, build-and-push]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ needs.infrastructure.outputs.app_url }}
+    env:
+      APP_PRIVATE_IP: ${{ needs.infrastructure.outputs.app_private_ip }}
+      BASTION_IP: ${{ needs.infrastructure.outputs.bastion_public_ip }}
+      SSH_USER: ${{ vars.AZURE_ADMIN_USERNAME || 'azureuser' }}
+      RESOURCE_GROUP: ${{ needs.infrastructure.outputs.resource_group_name }}
+      BASTION_NSG: ${{ needs.infrastructure.outputs.bastion_nsg_name }}
+      NSG_RULE: github-actions-${{ github.run_id }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # The bastion is closed to everything except the team's own addresses.
+      # GitHub runners get a different address every time, so open the door for
+      # this runner only and shut it again in the last step.
+      - name: Open the bastion for this runner
+        run: |
+          set -euo pipefail
+          runner_ip="$(curl -fsS --max-time 10 https://api.ipify.org)"
+          echo "Runner address: $runner_ip"
+          az network nsg rule create \
+            --resource-group "$RESOURCE_GROUP" \
+            --nsg-name "$BASTION_NSG" \
+            --name "$NSG_RULE" \
+            --priority 150 \
+            --direction Inbound \
+            --access Allow \
+            --protocol Tcp \
+            --source-address-prefixes "$runner_ip/32" \
+            --source-port-ranges '*' \
+            --destination-address-prefixes '*' \
+            --destination-port-ranges 22 \
+            --description "Temporary access for GitHub Actions run ${{ github.run_id }}" \
+            --output none
+
+      - name: Install Ansible
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install "ansible-core>=2.16"
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      # An SSH config file keeps the jump-host settings out of the Ansible
+      # command line, so there is no quoting to get wrong.
+      - name: Set up SSH through the bastion
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/agripulse
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/agripulse
+          install -m 600 /dev/null ~/.ssh/config
+          cat > ~/.ssh/config <<EOF
+          Host bastion
+            HostName $BASTION_IP
+            User $SSH_USER
+            IdentityFile ~/.ssh/agripulse
+            StrictHostKeyChecking accept-new
+
+          Host $APP_PRIVATE_IP
+            User $SSH_USER
+            IdentityFile ~/.ssh/agripulse
+            ProxyJump bastion
+            StrictHostKeyChecking accept-new
+          EOF
+          ssh -o BatchMode=yes bastion true
+
+      - name: Run the playbook
+        working-directory: ansible
+        env:
+          AGRIPULSE_VM_IP: ${{ env.APP_PRIVATE_IP }}
+          AGRIPULSE_SSH_USER: ${{ env.SSH_USER }}
+          AGRIPULSE_SSH_KEY: ~/.ssh/agripulse
+          AGRIPULSE_POSTGRES_PASSWORD: ${{ secrets.AGRIPULSE_POSTGRES_PASSWORD }}
+          AGRIPULSE_JWT_SECRET: ${{ secrets.AGRIPULSE_JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          ansible-playbook playbook.yml \
+            -e "agripulse_image_tag=${{ github.sha }}" \
+            -e "agripulse_acr_login_server=${{ needs.infrastructure.outputs.acr_login_server }}" \
+            -e "agripulse_database_fqdn=${{ needs.infrastructure.outputs.database_fqdn }}"
+
+      - name: Check the live site answers
+        run: |
+          set -euo pipefail
+          url="${{ needs.infrastructure.outputs.app_url }}"
+          for attempt in $(seq 1 10); do
+            if curl -fsS --max-time 10 "$url" > /dev/null; then
+              echo "$url is serving traffic."
+              exit 0
+            fi
+            echo "Attempt $attempt: no answer yet, retrying in 10s."
+            sleep 10
+          done
+          echo "::error::$url did not answer after the deploy."
+          exit 1
+
+      # Runs even when an earlier step failed, so the bastion never stays open.
+      - name: Close the bastion
+        if: always()
+        run: |
+          set -euo pipefail
+          az network nsg rule delete \
+            --resource-group "$RESOURCE_GROUP" \
+            --nsg-name "$BASTION_NSG" \
+            --name "$NSG_RULE" \
+            --output none || true

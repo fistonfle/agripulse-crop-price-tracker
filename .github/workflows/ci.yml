@@ -3,9 +3,9 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  # Run on every push to main (after a merge), so main always shows its CI status
-  push:
-    branches: [main]
+  # The CD workflow calls this one on a merge to main, so the same checks that
+  # guard a pull request also run before anything is deployed.
+  workflow_call:
 
 jobs:
   backend:
