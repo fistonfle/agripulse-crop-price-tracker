@@ -63,9 +63,19 @@ private container registry.
 - The registry has `admin_enabled = false`. The VM pulls with its own managed
   identity (`AcrPull`), so no registry password is stored anywhere.
 
+## Where the state lives
+
+State is stored in HCP Terraform, organisation `alu-devops-fiston`, workspace
+`agripulse-prod`, so the whole team and CI read one state instead of a file on
+one laptop. The workspace runs in **local execution** mode: `plan` and `apply`
+run on your own machine against your `az login` session, and only the state and
+the run history are kept remotely.
+
 ## Prerequisites
 
 - Terraform 1.5 or later
+- An HCP Terraform account that is a member of the `alu-devops-fiston`
+  organisation, signed in with `terraform login`
 - Azure CLI, signed in with `az login`
 - A subscription with permission to create the resources above
 - An SSH key pair; only the public key is given to Terraform
@@ -121,7 +131,8 @@ ask an owner to grant `AcrPull` on the registry to the VM's identity.
 ## Initialize, review, apply
 
 ```sh
-terraform init
+terraform login     # once, if you have not signed in to HCP Terraform
+terraform init      # connects to the agripulse-prod workspace
 terraform fmt -check
 terraform validate
 terraform plan
@@ -185,8 +196,9 @@ terraform destroy
 ```
 
 Review the destroy plan before confirming. State tracks the resource IDs and
-must be kept between runs; local state, plans and `*.tfvars` are git-ignored.
-Never commit state.
+is versioned in the HCP Terraform workspace, so it survives a laptop being
+wiped and can be rolled back there. Plans and `*.tfvars` stay git-ignored, and
+state is never committed.
 
 ## Cost
 
