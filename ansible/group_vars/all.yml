@@ -1,21 +1,31 @@
 ---
 # Settings shared by every role. None of these are secrets.
 
-# ---- Application ----
-# The repository the VM clones, and the branch or tag to deploy
-agripulse_repo_url: https://github.com/fistonfle/agripulse-crop-price-tracker.git
-agripulse_repo_version: main
-# Where the code and the .env file live on the VM
+# ---- What to deploy ----
+# The CD workflow passes these with -e. The image tag is the commit SHA, so the
+# VM runs exactly what CI built and pushed.
+agripulse_image_tag: latest
+agripulse_acr_login_server: ""
+agripulse_api_image: "{{ agripulse_acr_login_server }}/agripulse-api:{{ agripulse_image_tag }}"
+agripulse_web_image: "{{ agripulse_acr_login_server }}/agripulse-web:{{ agripulse_image_tag }}"
+
+# Where the compose file and the .env file live on the VM. No source code is
+# cloned any more; the VM only pulls images.
 agripulse_app_dir: /opt/agripulse
+
 # The port the website is served on. Keep it equal to app_port in terraform/variables.tf
 agripulse_app_port: 5173
 # The API port. It is only reachable from the VM itself (see the app role)
 agripulse_api_port: 3000
-agripulse_db_port: 5433
 
-# ---- Database ----
+# ---- Managed database ----
+# Azure Database for PostgreSQL replaces the db container in production.
+agripulse_database_fqdn: ""
+agripulse_database_port: 5432
 agripulse_postgres_user: agripulse
 agripulse_postgres_db: agripulse
+# Azure rejects connections that are not encrypted.
+agripulse_database_sslmode: require
 
 # ---- Secrets: read from environment variables on YOUR computer ----
 # They are written to the VM's .env file (mode 0600) and never to this repository.
@@ -23,8 +33,12 @@ agripulse_postgres_db: agripulse
 agripulse_postgres_password: "{{ lookup('ansible.builtin.env', 'AGRIPULSE_POSTGRES_PASSWORD') }}"
 agripulse_jwt_secret: "{{ lookup('ansible.builtin.env', 'AGRIPULSE_JWT_SECRET') }}"
 
+# Built from the parts above. The password is URL-safe, which the playbook checks.
+agripulse_database_url: >-
+  postgres://{{ agripulse_postgres_user }}:{{ agripulse_postgres_password }}@{{ agripulse_database_fqdn }}:{{ agripulse_database_port }}/{{ agripulse_postgres_db }}?sslmode={{ agripulse_database_sslmode }}
+
 # ---- Firewall and SSH ----
 # Who may open an SSH connection through the VM's own firewall.
 # "any" is fine because the Azure network security group already limits SSH to
-# your IP. Set it to your IP (for example 198.51.100.10) for a second layer.
+# the bastion subnet. Set it to the bastion's private IP for a second layer.
 agripulse_ssh_allowed_from: any

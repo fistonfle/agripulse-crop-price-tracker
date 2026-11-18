@@ -1,5 +1,5 @@
 ---
-# Configures the Azure VM created by Terraform and deploys AgriPulse on it.
+# Deploys AgriPulse on the Azure VM that Terraform created.
 #
 #   ansible-playbook playbook.yml
 #
@@ -19,7 +19,21 @@
           - lookup('ansible.builtin.env', 'AGRIPULSE_VM_IP') | length > 0
         fail_msg: >-
           AGRIPULSE_VM_IP is not set. Run:
-          export AGRIPULSE_VM_IP="$(terraform -chdir=../terraform output -raw vm_public_ip)"
+          export AGRIPULSE_VM_IP="$(terraform -chdir=../terraform output -raw app_private_ip)"
+        quiet: true
+
+    - name: Make sure the registry and the database were provided
+      ansible.builtin.assert:
+        that:
+          - agripulse_acr_login_server | length > 0
+          - agripulse_database_fqdn | length > 0
+          - agripulse_image_tag | length > 0
+        fail_msg: >-
+          agripulse_acr_login_server, agripulse_database_fqdn and
+          agripulse_image_tag must be set. Take the first two from Terraform:
+          terraform -chdir=../terraform output -raw acr_login_server
+          terraform -chdir=../terraform output -raw database_fqdn
+          and pass them with -e, together with the image tag to deploy.
         quiet: true
 
     - name: Make sure the secrets were provided and are not weak
@@ -50,9 +64,9 @@
     # 1. Docker and the tools the app needs
     - role: docker
       tags: [docker]
-    # 2. Firewall and SSH hardening (before the long build, so problems show early)
+    # 2. Firewall and SSH hardening (before the deploy, so problems show early)
     - role: security
       tags: [security]
-    # 3. Get the code, write .env, start the containers, check they work
+    # 3. Sign in to the registry, pull the images, start them, check they work
     - role: app
       tags: [app]
