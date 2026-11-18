@@ -63,15 +63,18 @@ az ad sp create --id <app-id>
 
 Give it two roles, both scoped to the AgriPulse resource group: `AcrPush` to
 push images, and `Network Contributor` to open and close the bastion rule
-during a deploy.
+during a deploy. **The resource group has to exist first**, so run these after
+the first `terraform apply`:
 
 ```bash
-SCOPE="/subscriptions/<subscription-id>/resourceGroups/rg-agripulse"
+SCOPE="/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-agripulse"
 az role assignment create --assignee <app-id> --role AcrPush --scope "$SCOPE"
 az role assignment create --assignee <app-id> --role "Network Contributor" --scope "$SCOPE"
 ```
 
-Trust this repository's `main` branch, and nothing else:
+Trust this repository, and nothing else. Two credentials are needed, because
+the two jobs that sign in to Azure present different subjects: `build-and-push`
+runs on the `main` branch, while `deploy` runs in the `production` environment.
 
 ```bash
 az ad app federated-credential create --id <app-id> --parameters '{
@@ -81,6 +84,19 @@ az ad app federated-credential create --id <app-id> --parameters '{
   "audiences": ["api://AzureADTokenExchange"]
 }'
 ```
+
+```bash
+az ad app federated-credential create --id <app-id> --parameters '{
+  "name": "github-production",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:fistonfle/agripulse-crop-price-tracker:environment:production",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+```
+
+A job that signs in to Azure from a new environment needs its own credential
+with that environment's subject, or the sign-in fails with no matching
+federated identity.
 
 Read the tenant and subscription IDs for the other two secrets:
 
@@ -132,8 +148,11 @@ so the playbook connects to the app VM's private IP without extra arguments.
 
 - **"Terraform output … is empty"** — the infrastructure has not been applied,
   or `TF_API_TOKEN` cannot read the workspace.
-- **Azure sign-in fails** — the federated credential subject does not match.
-  It must be the `main` branch of this repository exactly.
+- **Azure sign-in fails** — no federated credential matches the token subject.
+  `build-and-push` presents the `main` branch subject and `deploy` presents the
+  `production` environment subject, so both credentials must exist.
+- **"AuthorizationFailed" when pushing or changing the NSG** — the two role
+  assignments above were not made after the first `terraform apply`.
 - **SSH fails at "Set up SSH through the bastion"** — the temporary rule was
   not created. Check that the deploy identity has `Network Contributor` on the
   resource group, and that `AZURE_SSH_PRIVATE_KEY` matches the public key given
