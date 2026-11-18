@@ -1,0 +1,16 @@
+# Copy this file to terraform.tfvars and replace the values.
+# terraform.tfvars is git-ignored. Keep the database password out of it if you
+# prefer: pass it at apply time with -var or the TF_VAR_postgres_admin_password
+# environment variable.
+
+location = "eastus"
+vm_size  = "Standard_B2s"
+
+# Your own public IPv4 address, from https://ifconfig.me/ip
+admin_ssh_cidrs = ["203.0.113.10/32"]
+
+# The contents of ~/.ssh/agripulse_azure.pub, on one line
+admin_ssh_public_key = "ssh-ed25519 AAAA... you@example.com"
+
+# Generate with: openssl rand -hex 16
+postgres_admin_password = "replace-with-a-long-random-value"
