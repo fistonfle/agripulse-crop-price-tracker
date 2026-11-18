@@ -165,6 +165,7 @@ terraform output -raw acr_login_server
 | `database_fqdn` | The application's `DATABASE_URL` |
 | `app_public_ip`, `app_url` | The live address of the website |
 | `ssh_to_app_vm` | A ready-made SSH command through the bastion |
+| `bastion_nsg_name` | The CD workflow, to open and close a temporary SSH rule |
 
 ## Reaching the application VM
 

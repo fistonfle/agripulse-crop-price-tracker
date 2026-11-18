@@ -52,3 +52,8 @@ output "ssh_to_app_vm" {
   description = "Command that reaches the private application VM through the bastion."
   value       = "ssh -J ${var.admin_username}@${azurerm_public_ip.bastion.ip_address} ${var.admin_username}@${azurerm_network_interface.app.private_ip_address}"
 }
+
+output "bastion_nsg_name" {
+  description = "Name of the bastion security group. The CD workflow opens and closes a temporary SSH rule on it."
+  value       = azurerm_network_security_group.bastion.name
+}
