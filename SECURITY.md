@@ -65,7 +65,7 @@ Critical findings in the images:
 
 | Finding | Status | What we did or will do |
 |---|---|---|
-| Image CRITICAL and fixable HIGH findings (API and web) | **Open until a CI run is green** | Every one has a published fix and comes from the base image. Fix: move to supported base images (newer Alpine and Node 20 or 22, newer nginx), rebuild, and confirm in CI. Do not add an ignore file for these |
+| Image CRITICAL and fixable HIGH findings (API and web) | **Fixed** | All came from the old Alpine 3.21 base images and the npm bundled in the node image. Fix in PR #59: `apk upgrade` in both images, and npm removed from the API image because the API starts with `node` directly. Confirmed by CI (run 44582100412): both Trivy jobs pass |
 | Backend npm: 6 Low (Jest chain) | Accepted | Only in development dependencies. The image installs with `npm ci --omit=dev`, so Jest is not in production. `npm audit fix --force` would downgrade Jest to 25, which is a breaking change. Revisit when Jest publishes a fixed 29.x |
 | `postgres:16-alpine` (1 Critical, 25 High) | Accepted for development only | Used only for local development in `docker-compose.yml`. Production uses a managed Azure database, so this image is not deployed and not scanned in CI |
 
@@ -86,10 +86,10 @@ Each of these is skipped in `.checkov.yaml`. Revisit them before any real produc
 
 ## CI results
 
-To be filled in from the first pull request run on this branch:
+These are from the pull request run after the fix (run 44582100412). The first run failed on the image findings listed in the baseline, as intended.
 
-- Trivy API image: ___ Critical, ___ fixable High
-- Trivy web image: ___ Critical, ___ fixable High
-- Checkov: ___ failed checks
+- Trivy API image: 0 Critical, 0 High
+- Trivy web image: 0 Critical, 0 High
+- Checkov: 0 failed checks (13 checks skipped, each with a reason above)
 
 Keep these separate from the local baseline above.
