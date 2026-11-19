@@ -98,3 +98,144 @@ jobs:
           push: false
           cache-from: type=gha,scope=agripulse-web
           cache-to: type=gha,mode=max,scope=agripulse-web
+  trivy-api:
+    name: Trivy API image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Build API image
+        id: build
+        run: docker build -t agripulse-api:${{ github.sha }} -f Dockerfile .
+
+      - name: Save API scan report
+        if: always() && steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: agripulse-api:${{ github.sha }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          format: json
+          output: trivy-api.json
+          exit-code: '0'
+
+      - name: Fail on API Critical findings
+        if: always() && steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: agripulse-api:${{ github.sha }}
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: '1'
+
+      - name: Fail on fixable API High findings
+        if: always() && steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: agripulse-api:${{ github.sha }}
+          scanners: vuln
+          severity: HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload API scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-api-report
+          path: trivy-api.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  trivy-web:
+    name: Trivy web image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Build web image
+        id: build
+        run: docker build -t agripulse-web:${{ github.sha }} -f frontend/Dockerfile frontend
+
+      - name: Save web scan report
+        if: always() && steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: agripulse-web:${{ github.sha }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          format: json
+          output: trivy-web.json
+          exit-code: '0'
+
+      - name: Fail on web Critical findings
+        if: always() && steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: agripulse-web:${{ github.sha }}
+          scanners: vuln
+          severity: CRITICAL
+          exit-code: '1'
+
+      - name: Fail on fixable web High findings
+        if: always() && steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: agripulse-web:${{ github.sha }}
+          scanners: vuln
+          severity: HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload web scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-web-report
+          path: trivy-web.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  checkov:
+    name: Checkov Terraform
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Checkov
+        run: python -m pip install checkov
+
+      - name: Scan Terraform
+        run: |
+          mkdir -p security-reports
+          checkov \
+            --directory terraform \
+            --framework terraform \
+            --hard-fail-on HIGH,CRITICAL \
+            --soft-fail \
+            --output cli \
+            --output json \
+            --output-file-path console,security-reports/checkov-results.json
+
+      - name: Upload Checkov report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-terraform-report
+          path: security-reports/checkov-results.json
+          if-no-files-found: ignore
+          retention-days: 30

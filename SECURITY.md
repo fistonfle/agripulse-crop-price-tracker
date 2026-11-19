@@ -52,14 +52,14 @@ trivy image --scanners vuln --severity HIGH,CRITICAL agripulse-api
 trivy image --scanners vuln --severity HIGH,CRITICAL agripulse-web
 trivy image --scanners vuln --severity HIGH,CRITICAL postgres:16-alpine
 ```
-
-The local baseline scans reported findings but did not use `--exit-code 1`. For planned CI enforcement, Trivy should return a nonzero status when High or Critical findings are present, for example by adding `--exit-code 1`. With the current baseline, those CI scans are expected to fail until findings are remediated or a narrow exception is reviewed and documented.
+The local baseline scans reported findings but did not use `--exit-code 1`. Existing scan counts represent the local baseline, and reported findings remain marked open until a new scan confirms a fix.
 
 ## Severity thresholds
 
 - **npm audit:** High or Critical findings fail the scan. Low and Moderate findings remain reported for review.
-- **Trivy:** High and Critical findings are the selected severities. Planned CI enforcement will fail when these findings are present.
-- **Checkov:** Failed policy checks are reported as failures; review their security context and resource impact individually.
+- Trivy: all Critical findings fail; High findings with an available fix fail. Unfixed High findings remain reportable.
+- Checkov: High and Critical Terraform findings fail; lower severities remain reportable.
+- Reports: CI uploads JSON reports as workflow artifacts; raw scan dumps are not kept in Git.
 
 Lower-severity findings are not treated as automatically harmless. They remain open for review during maintenance.
 
