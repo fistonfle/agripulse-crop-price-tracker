@@ -4,6 +4,8 @@
 
 > Empowering farmers, traders, and cooperatives with market price transparency.
 
+**Live app:** `<LIVE URL>` · [Architecture](#architecture) · [Deploy from scratch](#deploy-from-scratch)
+
 ## Problem Statement
 
 Smallholder farmers and local traders in Rwanda often lack access to timely, accurate market price data across different trading hubs. This leaves them vulnerable to exploitative middlemen and makes it hard to decide when and where to sell their produce for a fair price.
@@ -279,6 +281,141 @@ The same checks run automatically on every pull request through GitHub Actions (
 Our backlog is tracked on the GitHub Projects board: [AgriPulse Board](https://github.com/users/fistonfle/projects/4/views/1)
 
 Task allocation and meeting notes are in the team tracking sheet: [AgriPulse task sheet](https://docs.google.com/spreadsheets/d/1NnRQ9JiBe6azZYSqSptSIRl31XnBaPDXTkgDA3oInkQ/edit?gid=0#gid=0)
+
+## Architecture
+
+```mermaid
+flowchart LR
+    dev([Developer]) -->|pull request| gh[GitHub repository]
+    gh -->|PR: lint, test, Trivy, Checkov| ci[CI workflow]
+    gh -->|merge to main| cd[CD workflow]
+    cd -->|docker push| acr[(Azure Container Registry)]
+    cd -->|Ansible over SSH via bastion| bastion
+
+    user([Users]) -->|HTTP| lb[Load balancer<br/>public IP]
+
+    subgraph vnet[Azure VNet]
+        subgraph pub[Public subnet]
+            bastion[Bastion host]
+            lb
+        end
+        subgraph priv[Private subnet]
+            vm[App VM<br/>Docker Compose: web + API]
+        end
+        subgraph data[Database subnet]
+            db[(Managed PostgreSQL<br/>private access only)]
+        end
+    end
+
+    lb --> vm
+    bastion -->|SSH :22| vm
+    vm -->|pull images, managed identity| acr
+    vm -->|5432| db
+```
+
+| Component | Terraform file | Purpose | Who can reach it |
+| --------- | -------------- | ------- | ---------------- |
+| Virtual network and 3 subnets (public, private, database) | `network.tf` | Private network for everything below | Not public |
+| Load balancer and public IP | `network.tf` | The public entry point for web traffic | Internet, web port only |
+| Bastion host | `compute.tf` | The only SSH door, used by Ansible | SSH from the admin IPs, plus a temporary rule that CD opens for its own runner |
+| App VM | `compute.tf` | Runs the web and API containers with Docker Compose | Web port from the load balancer, SSH only from the bastion |
+| Managed PostgreSQL (flexible server) | `database.tf` | Application data | App VM only, through a private DNS name |
+| Azure Container Registry (ACR) | `registry.tf` | Private store for the API and web images | CD pipeline pushes, the app VM pulls with its managed identity |
+| Network security groups | `network.tf` | Firewall rules for the public and private subnets | n/a |
+
+## Live application
+
+- **App:** `<LIVE URL>` (the `app_url` Terraform output)
+- **Health check:** `<LIVE URL>/health` (returns HTTP 200 and also checks the database)
+
+> Fill in the real address after the first successful CD run. Find it with `terraform -chdir=terraform output app_url`.
+
+## Deploy from scratch
+
+Do these in order. Each step has its own detailed guide.
+
+### 1. Provision the infrastructure (Terraform)
+
+```bash
+az login
+cd terraform
+cp terraform.tfvars.example terraform.tfvars   # then edit the values
+terraform init
+terraform fmt -check
+terraform validate
+terraform plan        # read it before applying
+terraform apply
+```
+
+Full guide: [`terraform/README.md`](terraform/README.md). `terraform.tfvars` is git-ignored. It holds the region, VM size, the admin IPs allowed to SSH to the bastion (never `0.0.0.0/0`) and your SSH public key.
+
+### 2. Configure the VM and deploy (Ansible)
+
+CD runs this for you on every merge. To run it by hand, go through the bastion:
+
+```bash
+cd ansible
+export AGRIPULSE_VM_IP="$(terraform -chdir=../terraform output -raw app_private_ip)"
+export AGRIPULSE_POSTGRES_PASSWORD="$(openssl rand -hex 16)"
+export AGRIPULSE_JWT_SECRET="$(openssl rand -hex 16)"
+ansible-playbook playbook.yml \
+  -e "agripulse_image_tag=latest" \
+  -e "agripulse_acr_login_server=$(terraform -chdir=../terraform output -raw acr_login_server)" \
+  -e "agripulse_database_fqdn=$(terraform -chdir=../terraform output -raw database_fqdn)"
+```
+
+The app VM is private, so run this through the bastion (an SSH `ProxyJump`, as `cd.yml` does). The playbook installs Docker and Compose, enables the firewall, hardens SSH, logs in to ACR, pulls the images and starts the app with Docker Compose. Running it again is safe. Full guide: [`ansible/README.md`](ansible/README.md).
+
+### 3. Turn on the pipeline (GitHub Actions)
+
+1. Create the Azure sign-in identity and add the repository secrets below. Step-by-step instructions are in [`docs/deployment.md`](docs/deployment.md).
+2. Open a pull request. CI runs lint, tests and security scans.
+3. Merge to `main`. CD builds both images, pushes them to ACR and runs the Ansible playbook against the app VM.
+
+## Pipeline
+
+| Workflow | Trigger | What it does |
+| -------- | ------- | ------------ |
+| `ci.yml` | Pull request and push to `main` | Backend and frontend lint and tests, frontend build, Docker build |
+| Security scans | Pull request | Trivy scans the image and Checkov scans the Terraform. A CRITICAL finding with a fix fails the build (see `SECURITY.md`) |
+| `cd.yml` | Merge to `main` (or manual run) | Runs the CI checks, reads the Terraform outputs, builds and pushes the API and web images to ACR, signs in to Azure, opens the bastion for the runner, runs the Ansible playbook, checks the live site answers, then closes the bastion |
+
+`main` is protected: a pull request, one approving review and a passing CI run are needed before merging.
+
+## Secrets the pipeline needs
+
+Add these under **Settings, Secrets and variables, Actions**. Never commit them.
+
+| Secret | Used for | Where it comes from |
+| ------ | -------- | ------------------- |
+| `AZURE_CLIENT_ID` | Azure sign-in with OIDC (no client secret stored) | Azure app registration for the deploy identity |
+| `AZURE_TENANT_ID` | Azure sign-in | `az account show` |
+| `AZURE_SUBSCRIPTION_ID` | Azure sign-in | `az account show` |
+| `AZURE_SSH_PRIVATE_KEY` | Ansible connects to the app VM through the bastion | Private half of the key given to Terraform |
+| `TF_API_TOKEN` | CD reads the Terraform outputs from HCP Terraform | HCP Terraform user or team token |
+| `AGRIPULSE_POSTGRES_PASSWORD` | Database password | Generate with `openssl rand -hex 16` |
+| `AGRIPULSE_JWT_SECRET` | Signs login tokens | Generate with `openssl rand -hex 16` |
+
+Optional repository variable: `AZURE_ADMIN_USERNAME` (defaults to `azureuser`).
+
+Local-only files (`terraform.tfvars`, `.env`) are git-ignored. On the VM, `.env` is written with mode `0600`.
+
+## Operating the system
+
+```bash
+# Is the app healthy?
+curl -i <LIVE URL>/health
+
+# On the VM (through the bastion)
+docker compose ps
+docker compose logs -f backend
+
+# Redeploy: merge to main, or run the CD workflow manually
+# (Actions tab, CD, Run workflow)
+
+# Tear everything down (stops billing)
+cd terraform && terraform destroy
+```
 
 ## License
 
