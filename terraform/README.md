@@ -1,141 +1,212 @@
 # AgriPulse Azure infrastructure
 
-This Terraform configuration creates one resource group, virtual network and
-subnet, network security group and rules, one static public IP, and one Linux
-VM with a standard managed OS disk. The Ubuntu VM installs Docker Engine and
-Docker Compose at first boot so it can run the repository's `docker-compose.yml`.
+Terraform describes the production topology: a private network with a bastion,
+an application VM that has no public IP, a managed PostgreSQL server, and a
+private container registry.
 
-The only inbound rules are SSH (restricted to the configured administrator
-CIDR) and the application frontend port (5173 by default). PostgreSQL and the
-backend API are not opened directly to the internet.
+```
+                 internet
+                    |
+      SSH (your IP) |  HTTP :5173
+                    |      |
+            +-------+      +-------------+
+            |                            |
+     +--------------+            +-----------------+
+     |   bastion    |            |  load balancer  |
+     | public subnet|            |   public IP     |
+     |  10.20.1.0/24|            +--------+--------+
+     +------+-------+                     |
+            |  SSH only from the bastion  |
+            +--------------+--------------+
+                           |
+                  +--------v---------+        +----------------------+
+                  |  application VM  |------->| container registry   |
+                  |  private subnet  | pull   | (private, no admin   |
+                  |  10.20.2.0/24    |        |  user)               |
+                  |  no public IP    |        +----------------------+
+                  +--------+---------+
+                           | PostgreSQL :5432
+                  +--------v-----------------+
+                  | PostgreSQL Flexible Srv  |
+                  | database subnet          |
+                  | 10.20.3.0/24, private    |
+                  +--------------------------+
+```
+
+## What each file holds
+
+| File | Contents |
+| --- | --- |
+| `main.tf` | Provider versions, the resource group, the random suffix used for globally unique names |
+| `network.tf` | Virtual network, the three subnets, both network security groups and their rules, the public load balancer |
+| `compute.tf` | The bastion VM and the private application VM with their network interfaces |
+| `database.tf` | PostgreSQL Flexible Server, its database, and the private DNS zone |
+| `registry.tf` | Azure Container Registry and the VM's pull permission |
+| `variables.tf` | Every input, with defaults where a default is safe |
+| `outputs.tf` | The values Ansible and the CD workflow need |
+| `cloud-init.yaml.tftpl` | First-boot script that installs Docker on the application VM |
+
+## How the network is closed off
+
+- The application VM has no public IP. Public web traffic arrives on the load
+  balancer's public IP and is forwarded to the VM on the application port.
+- The load balancer's outbound rule is what gives the private subnet outbound
+  internet access, so the VM can install packages and pull images without being
+  reachable from the internet itself.
+- The bastion security group allows TCP 22 only from the CIDRs in
+  `admin_ssh_cidrs`. `0.0.0.0/0` is rejected by a variable validation.
+- The application security group allows the web port from the internet, the
+  load balancer's health probe, and TCP 22 only from the public subnet, which is
+  the bastion. Everything else is denied by Azure's default rules.
+- PostgreSQL has `public_network_access_enabled = false` and lives in a
+  delegated subnet, so it is only resolvable and reachable inside the network.
+- The registry has `admin_enabled = false`. The VM pulls with its own managed
+  identity (`AcrPull`), so no registry password is stored anywhere.
+
+## Where the state lives
+
+State is stored in HCP Terraform, organisation `alu-devops-fiston`, workspace
+`agripulse-prod`, so the whole team and CI read one state instead of a file on
+one laptop. The workspace runs in **local execution** mode: `plan` and `apply`
+run on your own machine against your `az login` session, and only the state and
+the run history are kept remotely.
 
 ## Prerequisites
 
 - Terraform 1.5 or later
+- An HCP Terraform account that is a member of the `alu-devops-fiston`
+  organisation, signed in with `terraform login`
 - Azure CLI, signed in with `az login`
-- An Azure subscription with permission to create the listed resources
-- An SSH key pair; only its public key is passed to Terraform
+- A subscription with permission to create the resources above
+- An SSH key pair; only the public key is given to Terraform
 
-Check or select the intended subscription before proceeding:
+Select the intended subscription first:
 
 ```sh
 az account show
-az account set --subscription <subscription-id>
 export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 ```
 
-The AzureRM provider authenticates using the Azure CLI session. The subscription
-ID is read from `ARM_SUBSCRIPTION_ID`; no client secret or credential is stored
-in these files.
+The provider authenticates through the Azure CLI session. No client secret is
+stored in these files.
 
-## Configure variables
+## Set the variables
 
-Create a public key if you do not already have one:
+Create a key pair if you do not have one:
 
 ```sh
 ssh-keygen -t ed25519 -f ~/.ssh/agripulse_azure
 ```
 
-Create `terraform.tfvars` in this directory (it is git-ignored) and set the
-required environment-specific values:
-
-```hcl
-location            = "Azure region, for example eastus"
-vm_size             = "Azure VM size available to your subscription"
-admin_ssh_cidr       = "your-public-ipv4/32"
-admin_ssh_public_key = "contents of ~/.ssh/agripulse_azure.pub"
-```
-
-Replace the example descriptions with actual values. Obtain the public IP CIDR
-of the machine that will run Ansible/SSH; do not use `0.0.0.0/0`. Use an Azure
-region and VM size that are available under your subscription's quota and review
-their prices before creating resources. Optional variables such as
-`resource_group_name`, `admin_username`, `app_port`, and network ranges have
-documented defaults in `variables.tf`.
-
-Alternatively, pass sensitive-to-your-environment inputs through a local
-untracked tfvars file or CLI variables. Do not put keys or other private
-credentials in source control. The SSH public key is not secret, but the
-configuration file containing it is ignored to keep local settings out of Git.
-
-## Initialize, review, and apply
-
-From this directory:
+Copy the example file and fill it in. `terraform.tfvars` is git-ignored:
 
 ```sh
-terraform init
+cp terraform.tfvars.example terraform.tfvars
+```
+
+Five inputs have no default and must be set:
+
+| Variable | What to put in it |
+| --- | --- |
+| `location` | Azure region available to your subscription, for example `eastus` |
+| `vm_size` | Application VM size within your quota, for example `Standard_B2s` |
+| `admin_ssh_cidrs` | Your own public IPv4 as a list, for example `["203.0.113.10/32"]` |
+| `admin_ssh_public_key` | The contents of `~/.ssh/agripulse_azure.pub` |
+| `postgres_admin_password` | At least 16 characters; generate with `openssl rand -hex 16` |
+
+Keeping the database password out of the file is better. Pass it through the
+environment instead:
+
+```sh
+export TF_VAR_postgres_admin_password="$(openssl rand -hex 16)"
+```
+
+Everything else has a default in `variables.tf`: the address ranges, the
+PostgreSQL SKU and version, the registry SKU, the application port, the
+bastion size, and the resource names.
+
+If your account cannot assign Azure roles, set `grant_vm_acr_pull = false` and
+ask an owner to grant `AcrPull` on the registry to the VM's identity.
+
+## Initialize, review, apply
+
+```sh
+terraform login     # once, if you have not signed in to HCP Terraform
+terraform init      # connects to the agripulse-prod workspace
 terraform fmt -check
 terraform validate
 terraform plan
 ```
 
-Read the plan and confirm the selected subscription, region, VM size, inbound
-ports, and resource count before applying. `terraform plan` is read-only and
-does not create Azure resources. To create the infrastructure only after
-reviewing the plan:
+`terraform plan` is read-only and creates nothing. Read it and confirm the
+subscription, region, sizes and open ports before applying. A first plan on an
+empty state adds 32 resources.
 
 ```sh
 terraform apply
 ```
 
-Terraform will show the plan again and ask for confirmation. Do not approve it
-unless the resources and costs are acceptable.
+Terraform shows the plan again and asks for confirmation. Do not approve it
+unless the resources and the cost are acceptable.
 
-## Outputs and running the app
-
-After apply, retrieve the IDs and Ansible connection details with:
+## Outputs
 
 ```sh
 terraform output
-terraform output -raw vm_public_ip
+terraform output -raw bastion_public_ip
+terraform output -raw acr_login_server
 ```
 
-Connect using the matching private key, then clone the application and start
-the Compose stack:
+| Output | Used by |
+| --- | --- |
+| `bastion_public_ip` | SSH and the Ansible jump host |
+| `app_private_ip` | The Ansible inventory host |
+| `acr_login_server` | `docker login` / `docker push` in CI, and the VM's pull |
+| `database_fqdn` | The application's `DATABASE_URL` |
+| `app_public_ip`, `app_url` | The live address of the website |
+| `ssh_to_app_vm` | A ready-made SSH command through the bastion |
+| `bastion_nsg_name` | The CD workflow, to open and close a temporary SSH rule |
+
+## Reaching the application VM
+
+The VM is private, so SSH goes through the bastion with `-J` (ProxyJump):
 
 ```sh
-ssh -i ~/.ssh/agripulse_azure azureuser@<vm-public-ip>
-git clone https://github.com/fistonfle/agripulse-crop-price-tracker.git
-cd agripulse-crop-price-tracker
-cp .env.example .env
-chmod 600 .env
+ssh -J azureuser@$(terraform output -raw bastion_public_ip) \
+    azureuser@$(terraform output -raw app_private_ip)
 ```
 
-Edit `.env` and replace the development defaults for `POSTGRES_PASSWORD` and
-`JWT_SECRET` with strong, unique values. Do not expose or commit this file.
-Then start the stack:
+Or copy the command straight from the output:
 
 ```sh
-sudo docker-compose up -d --build
+terraform output -raw ssh_to_app_vm
 ```
 
-Open `http://<vm-public-ip>:5173`. The VM public IP and its frontend port are
-intended for Ansible inventory and application access. The VM administrator can
-run Docker without `sudo` after reconnecting to SSH for the updated group
-membership to take effect.
+Ansible uses the same path. Point it at the private IP and set the jump host in
+`ansible_ssh_common_args`:
+
+```sh
+export AGRIPULSE_VM_IP="$(terraform output -raw app_private_ip)"
+export AGRIPULSE_BASTION_IP="$(terraform output -raw bastion_public_ip)"
+```
 
 ## Cleanup
-
-Destroy the resources when they are no longer needed:
 
 ```sh
 terraform destroy
 ```
 
-Review the destroy plan and confirm before proceeding. Terraform state tracks
-resource IDs and must be retained securely between operations; this directory's
-local state, plans, and variable files are git-ignored. Back up state securely
-if needed, and never commit it.
+Review the destroy plan before confirming. State tracks the resource IDs and
+is versioned in the HCP Terraform workspace, so it survives a laptop being
+wiped and can be rolled back there. Plans and `*.tfvars` stay git-ignored, and
+state is never committed.
 
-## Azure costs
+## Cost
 
-Applying this configuration can incur charges, primarily for the running Linux
-VM, its managed OS disk, and the Standard static public IP. The VM can continue
-to incur compute charges while stopped from inside the OS; deallocate it in
-Azure when not in use, or destroy the deployment. Prices vary by region,
-subscription, VM size, and date. Check the Azure Pricing Calculator and your
-Azure for Students remaining credit/quota before applying. A successful plan
-does not reserve capacity or estimate the final bill. Since `location` and
-`vm_size` are required inputs, there is no fixed estimate in this configuration;
-calculate the selected VM's running hours, disk, public IP, and bandwidth for
-your region before applying.
+Applying this charges for two VMs and their disks, two Standard public IPs, the
+Standard load balancer, and the PostgreSQL Flexible Server with its storage and
+backups. That is more than the single VM of the earlier formative. Prices vary
+by region, subscription and date, and a successful plan is not an estimate.
+Check the Azure Pricing Calculator and your Azure for Students credit before
+applying, and run `terraform destroy` when the demo is finished. A VM stopped
+from inside the OS still bills compute; deallocate it in Azure or destroy it.
