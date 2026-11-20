@@ -24,6 +24,13 @@ ENV PORT=3000
 
 WORKDIR /app
 
+# Security fixes for the scanner (Trivy):
+# - apk upgrade installs the patched Alpine packages (OpenSSL and others).
+# - npm is removed because the API starts with "node" directly, and the npm
+#   that ships inside the node image carries its own vulnerable packages.
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 # Copy the packages from step 1 instead of installing them again
 COPY --from=deps /app/node_modules ./node_modules
 

@@ -1,0 +1,25 @@
+# Checkov settings for CI. The workflow runs:
+#   checkov --directory terraform --framework terraform --config-file .checkov.yaml
+#
+# Open source Checkov has no severity levels (those need a paid platform key),
+# so CI fails on ANY failed check that is not listed here. Every skip below
+# needs a reason, and the same reason is written in SECURITY.md.
+skip-check:
+  # --- Accepted: by design ---
+  - CKV_AZURE_119   # The bastion needs a public IP. It is the only SSH entry point and its NSG allows only the admin IPs.
+  - CKV_AZURE_139   # ACR stays reachable from the internet so GitHub-hosted runners can push images. Admin user is off; access is by Azure RBAC and OIDC.
+  - CKV2_AZURE_57   # PostgreSQL uses VNet integration (delegated subnet + private DNS) instead of a private endpoint. Public access is disabled.
+
+  # --- Accepted: paid or premium features, not needed for a course demo ---
+  - CKV_AZURE_136   # Geo-redundant database backups (cost).
+  - CKV_AZURE_233   # ACR zone redundancy (Premium SKU).
+  - CKV_AZURE_237   # ACR dedicated data endpoints (Premium SKU).
+  - CKV_AZURE_165   # ACR geo-replication (Premium SKU).
+  - CKV_AZURE_164   # ACR content trust / signed images (Premium SKU).
+  - CKV_AZURE_166   # ACR image quarantine (Premium SKU).
+  - CKV_AZURE_167   # ACR retention policy for untagged manifests (Premium SKU).
+  - CKV_AZURE_163   # ACR built-in vulnerability scanning. Trivy scans the images in CI instead.
+
+  # --- Planned fixes: remove these skips once the Terraform is changed ---
+  - CKV_AZURE_50    # Set allow_extension_operations = false on both VMs. No VM extensions are used.
+  - CKV2_AZURE_31   # Add a network security group to the database subnet.
