@@ -4,7 +4,7 @@
 
 > Empowering farmers, traders, and cooperatives with market price transparency.
 
-**Live app:** `<LIVE URL>` · [Architecture](#architecture) · [Deploy from scratch](#deploy-from-scratch)
+**Live app:** http://4.221.225.199:5173 · [Architecture](#architecture) · [Deploy from scratch](#deploy-from-scratch)
 
 ## Problem Statement
 
@@ -325,10 +325,24 @@ flowchart LR
 
 ## Live application
 
-- **App:** `<LIVE URL>` (the `app_url` Terraform output)
-- **Health check:** `<LIVE URL>/health` (returns HTTP 200 and also checks the database)
+- **App:** http://4.221.225.199:5173 (the `app_url` Terraform output)
+- **Region:** South Africa North. Azure for Students only permits five regions,
+  and the nearest to Rwanda is this one.
+- **Health check:** `{"status":"ok","database":"ok"}` from `/health` on the
+  backend. It is **not public yet**: nginx proxies only `/api/`, so `/health`
+  answers on the VM itself. Reach it through the bastion:
 
-> Fill in the real address after the first successful CD run. Find it with `terraform -chdir=terraform output app_url`.
+  ```bash
+  ssh -o ProxyCommand="ssh -i ~/.ssh/agripulse_azure -W %h:%p azureuser@<bastion-ip>" \
+      -i ~/.ssh/agripulse_azure azureuser@<app-private-ip> 'curl -s localhost:3000/health'
+  ```
+
+  Making it answer publicly, and having the load balancer probe it instead of
+  `/`, is issue #63. Until then the load balancer probes the React page, which
+  returns 200 even when the database is down.
+
+Addresses change if the infrastructure is destroyed and re-applied. Find the
+current ones with `terraform -chdir=terraform output`.
 
 ## Deploy from scratch
 
@@ -403,8 +417,12 @@ Local-only files (`terraform.tfvars`, `.env`) are git-ignored. On the VM, `.env`
 ## Operating the system
 
 ```bash
-# Is the app healthy?
-curl -i <LIVE URL>/health
+# Is the site up?
+curl -I http://4.221.225.199:5173
+
+# Is the app healthy? (/health is not public yet - see #63)
+ssh -o ProxyCommand="ssh -i ~/.ssh/agripulse_azure -W %h:%p azureuser@<bastion-ip>" \
+    -i ~/.ssh/agripulse_azure azureuser@<app-private-ip> 'curl -s localhost:3000/health'
 
 # On the VM (through the bastion)
 docker compose ps
