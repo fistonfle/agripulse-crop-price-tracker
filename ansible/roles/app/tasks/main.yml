@@ -73,54 +73,85 @@
   register: app_compose
 
 # ---------------- Database schema ----------------
-# schema.sql drops the tables before creating them, so it must never run against
-# a database that already has them. These tasks look first and only create the
-# schema when the database is empty.
+# The schema is changed only by the numbered files in backend/db/migrations/.
+# migrate.sh applies the ones this database has not seen (recorded in the
+# schema_migrations table) and never drops anything. schema.sql is the
+# development bootstrap and is NOT used here. The migration tool runs inside the
+# postgres image, so the VM needs nothing installed. The database address and
+# password travel in an environment variable, not on the command line.
 
-- name: Copy the schema and the sample data
+- name: Copy the migration runner and the migrations
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../backend/db/{{ item }}"
-    dest: "{{ agripulse_app_dir }}/{{ item }}"
+    dest: "{{ agripulse_app_dir }}/"
     owner: root
     group: root
-    mode: "0640"
+    mode: "{{ '0750' if item == 'migrate.sh' else '0640' }}"
+    directory_mode: "0750"
   loop:
-    - schema.sql
+    - migrate.sh
+    - migrations
     - seed.sql
 
 - name: Check whether the database already has its tables
+  # Asked before migrating: only a brand new database gets the sample data.
   ansible.builtin.command:
     argv:
       - docker
       - run
       - --rm
+      - -e
+      - DATABASE_URL
       - postgres:16-alpine
-      - psql
-      - "{{ agripulse_database_url }}"
-      - -tAc
-      - SELECT to_regclass('public.prices') IS NOT NULL
+      - sh
+      - -c
+      - psql "$DATABASE_URL" -tAc "SELECT to_regclass('public.prices') IS NOT NULL"
+  environment:
+    DATABASE_URL: "{{ agripulse_database_url }}"
   register: app_db_has_tables
   changed_when: false
   no_log: true
 
-- name: Create the schema and load the sample data, only on an empty database
+- name: Apply the database migrations that have not been applied yet
   ansible.builtin.command:
     argv:
       - docker
       - run
       - --rm
+      - -e
+      - DATABASE_URL
       - --volume
-      - "{{ agripulse_app_dir }}:/sql:ro"
+      - "{{ agripulse_app_dir }}/migrate.sh:/migrate.sh:ro"
+      - --volume
+      - "{{ agripulse_app_dir }}/migrations:/migrations:ro"
       - postgres:16-alpine
-      - psql
-      - "{{ agripulse_database_url }}"
-      - -v
-      - ON_ERROR_STOP=1
-      - -f
-      - "/sql/{{ item }}"
-  loop:
-    - schema.sql
-    - seed.sql
+      - sh
+      - /migrate.sh
+  environment:
+    DATABASE_URL: "{{ agripulse_database_url }}"
+    MIGRATIONS_DIR: /migrations
+  register: app_migrations
+  # migrate.sh prints one "MIGRATED:" line per file it applied, so a run with
+  # nothing new reports "ok" and the playbook stays idempotent.
+  changed_when: "'MIGRATED:' in app_migrations.stdout"
+  no_log: true
+
+- name: Load the sample data, only into a brand new database
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - -e
+      - DATABASE_URL
+      - --volume
+      - "{{ agripulse_app_dir }}/seed.sql:/seed.sql:ro"
+      - postgres:16-alpine
+      - sh
+      - -c
+      - psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /seed.sql
+  environment:
+    DATABASE_URL: "{{ agripulse_database_url }}"
   when: app_db_has_tables.stdout | trim != 't'
   changed_when: true
   no_log: true
