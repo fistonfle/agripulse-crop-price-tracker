@@ -23,6 +23,12 @@ RUN npm run build
 # the nginx user instead of root, and listens on port 8080.
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 
+# Security fix for the scanner (Trivy): install the patched Alpine packages.
+# The base image runs as the nginx user, so switch to root for this one step.
+USER root
+RUN apk upgrade --no-cache
+USER 101
+
 # My own config: serve the React files and send /api to the backend
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
