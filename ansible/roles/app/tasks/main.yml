@@ -45,6 +45,10 @@
     username: "00000000-0000-0000-0000-000000000000"
     password: "{{ app_refresh_token.json.refresh_token }}"
   no_log: true
+  # The registry hands out a fresh token on every run, so docker_login would
+  # always report "changed". Signing in does not alter the deployment, so it
+  # is not a change and the playbook stays idempotent.
+  changed_when: false
 
 # ---------------- Configuration ----------------
 
