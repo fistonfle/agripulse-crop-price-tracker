@@ -97,9 +97,9 @@ variable "app_port" {
 }
 
 variable "health_probe_path" {
-  description = "HTTP path the load balancer requests to decide whether the VM is healthy."
+  description = "HTTP path the load balancer requests to decide whether the VM is healthy. /health is answered by the API and also checks the database; / only proves nginx is up."
   type        = string
-  default     = "/"
+  default     = "/health"
 }
 
 variable "vnet_address_space" {

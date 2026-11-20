@@ -158,4 +158,28 @@ so the playbook connects to the app VM's private IP without extra arguments.
   resource group, and that `AZURE_SSH_PRIVATE_KEY` matches the public key given
   to Terraform.
 - **The live check fails** — the containers started but the site did not
-  answer. Check the load balancer health probe and the app NSG.
+  answer. Check the load balancer health probe (it requests `/health`) and the app NSG.
+
+## The health signal
+
+The load balancer probes `GET /health` on the website port, not `/`. nginx passes
+that path to the API, which also checks the database:
+
+| What is wrong | `/health` answers | Load balancer |
+| ------------- | ----------------- | ------------- |
+| Nothing | `200 {"status":"ok","database":"ok"}` | healthy, sends traffic |
+| Database unreachable | `503 {"status":"error","database":"unreachable"}` | unhealthy, stops traffic |
+| API container stopped | `502 Bad Gateway` from nginx | unhealthy, stops traffic |
+
+`/` would have said 200 in all three cases, because it is only the static React
+page. To see the signal from outside, without SSH:
+
+```sh
+curl -i http://<app_url host>:5173/health
+```
+
+To prove the probe reacts, stop the API on the VM (`sudo docker stop agripulse-api`),
+wait about 15 seconds (2 probes, 5 seconds apart), and the backend shows as
+unhealthy under the load balancer's Insights in the Azure portal, and `curl`
+above returns 502. Run `sudo docker start agripulse-api` and it returns to 200
+and healthy again.
