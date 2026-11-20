@@ -45,6 +45,9 @@
     username: "00000000-0000-0000-0000-000000000000"
     password: "{{ acr_refresh_token.json.refresh_token }}"
   no_log: true
+  # The token is new every run, so this would always report "changed".
+  # Signing in does not alter the deployment, so it is not a change.
+  changed_when: false
 
 # ---------------- Configuration ----------------
 

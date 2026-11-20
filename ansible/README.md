@@ -1,179 +1,145 @@
 # AgriPulse VM configuration with Ansible
 
-This folder configures the Azure VM that Terraform creates (see
-[`../terraform/`](../terraform/README.md)) and deploys the AgriPulse app on it.
-One command does everything:
-
-```sh
-ansible-playbook playbook.yml
-```
+The playbook takes the private application VM from "Terraform just made it" to
+"running the image CI built". It pulls the tagged images from the private
+registry and points the app at the managed PostgreSQL server. No source code is
+cloned on the VM and no database container runs there.
 
 ## What the playbook does
 
-| Role | What it does |
-| ---- | ------------ |
-| `docker` | Waits for the VM's first-boot setup to finish, then installs Docker, the Compose plugin and git, and makes sure Docker runs at boot. |
-| `security` | Turns on the `ufw` firewall (deny all incoming except SSH and the website port), then hardens SSH: key login only, no passwords, no root login, only the admin user may log in. |
-| `app` | Clones this repository on the VM, writes the `.env` file with your secrets (mode `0600`), starts the stack from the repository's own `docker-compose.yml`, and checks that it works. |
+1. **docker** — installs Docker, the Compose plugin and git, and waits for
+   cloud-init to finish so apt is not locked.
+2. **security** — ufw firewall (SSH and the website port only), SSH hardened to
+   keys and no root login.
+3. **app** — signs in to the registry with the VM's managed identity, writes
+   `.env` and the compose file, creates the database schema if the database is
+   empty, pulls the images and starts them, then checks that the site, the API
+   and the database all answer.
 
-Running it again is safe: tasks only change something when the VM is not
-already in the wanted state, so a second run should report `changed=0`.
+It is safe to run again: a second run reports `changed=0`.
+
+## How the VM is reached
+
+The application VM has no public IP. Every connection goes through the bastion
+with a `ProxyCommand`, which the inventory adds when `AGRIPULSE_BASTION_IP` is
+set. Leave that variable unset only if your `~/.ssh/config` already knows the
+route.
 
 ## Prerequisites
 
-- A VM created with Terraform (`terraform apply` in `../terraform/`).
-- The SSH **private** key that matches the public key you gave Terraform
-  (the examples use `~/.ssh/agripulse_azure`).
-- Your computer's public IP must be the one allowed in Terraform
-  (`admin_ssh_cidr`), otherwise the connection times out.
-- Ansible 2.16 or newer on your computer. On Ubuntu:
+- Ansible 2.16 or later, and the collections in `requirements.yml`:
+  `ansible-galaxy collection install -r requirements.yml`
+- The infrastructure applied from [`../terraform`](../terraform)
+- The private key matching `admin_ssh_public_key`
+- Images already in the registry, tagged with the commit SHA. The CD workflow
+  pushes them; see [`../docs/deployment.md`](../docs/deployment.md).
 
-  ```sh
-  sudo apt update && sudo apt install -y pipx
-  pipx install --include-deps ansible
-  pipx ensurepath        # then open a new terminal
-  ansible --version
-  ```
-
-  The `ansible` package already includes the two collections used here. If you
-  installed only `ansible-core`, run
-  `ansible-galaxy collection install -r requirements.yml`.
-
-## 1. Get the VM address
-
-The address comes from Terraform's outputs. Nothing is typed into a file.
+## 1. Take the addresses from Terraform
 
 ```sh
-cd terraform
-terraform output -raw vm_public_ip      # prints the VM's public IP
-cd ../ansible
+export AGRIPULSE_VM_IP="$(terraform -chdir=../terraform output -raw app_private_ip)"
+export AGRIPULSE_BASTION_IP="$(terraform -chdir=../terraform output -raw bastion_public_ip)"
+export AGRIPULSE_SSH_KEY=~/.ssh/agripulse_azure   # optional, this is the default
+export AGRIPULSE_SSH_USER=azureuser               # optional, this is the default
 ```
 
-## 2. Set the inventory and the secrets
+## 2. Set the secrets
 
-The inventory ([`inventory/hosts.yml`](inventory/hosts.yml)) reads everything
-from environment variables, so no IP address, key path or password is stored in
-Git:
+These are read from your environment and written to the VM's `.env` at mode
+0600. They are never committed. The playbook refuses to run if they are missing,
+shorter than 16 characters, or still the development defaults.
 
 ```sh
-# Where the VM is, and how to log in
-export AGRIPULSE_VM_IP="$(terraform -chdir=../terraform output -raw vm_public_ip)"
-export AGRIPULSE_SSH_KEY=~/.ssh/agripulse_azure     # optional, this is the default
-export AGRIPULSE_SSH_USER=azureuser                 # optional, this is the default
-
-# Secrets for the app: create your own, never reuse the development defaults
-export AGRIPULSE_POSTGRES_PASSWORD="$(openssl rand -hex 16)"
+export AGRIPULSE_POSTGRES_PASSWORD="the same password Terraform was given"
 export AGRIPULSE_JWT_SECRET="$(openssl rand -hex 16)"
 ```
 
-Keep the same terminal for the next steps, or save the two secrets in your
-password manager if you need to run the playbook again later in a new terminal.
-Use only letters, digits, `.`, `-` and `_` in the secrets (the password is placed
-inside a database URL). The playbook stops early if a secret is missing, shorter
-than 16 characters, or still a development default.
+The database password has to match the one in the PostgreSQL server, so take it
+from wherever you kept it when you ran `terraform apply`.
 
-## 3. Check before running
+## 3. Run it
 
-```sh
-ansible-playbook playbook.yml --syntax-check    # the playbook is valid
-ansible agripulse -m ansible.builtin.ping       # the VM is reachable over SSH
-```
-
-The ping should answer `pong`. The first connection saves the VM's SSH
-fingerprint automatically.
-
-## 4. Run the playbook
+Three values tell the playbook what to deploy and where. The CD workflow passes
+them automatically; pass them by hand for a manual deploy:
 
 ```sh
-ansible-playbook playbook.yml
+ansible-playbook playbook.yml \
+  -e agripulse_acr_login_server="$(terraform -chdir=../terraform output -raw acr_login_server)" \
+  -e agripulse_database_fqdn="$(terraform -chdir=../terraform output -raw database_fqdn)" \
+  -e agripulse_image_tag=<the commit SHA to deploy>
 ```
 
-The first run takes a few minutes because the images are built on the VM. At
-the end you should see `failed=0`. You can run only one part with tags:
+| Variable | What it is |
+| --- | --- |
+| `agripulse_acr_login_server` | Registry to pull from |
+| `agripulse_database_fqdn` | Managed PostgreSQL host |
+| `agripulse_image_tag` | Which build to run, normally the commit SHA |
+
+Deploying a different build is the same command with a different tag, which is
+also how a rollback works.
+
+## 4. Verify
 
 ```sh
-ansible-playbook playbook.yml --tags docker      # or: security, app
+# The site, through the load balancer
+curl -I "$(terraform -chdir=../terraform output -raw app_url)"
+
+# Running it again changes nothing
+ansible-playbook playbook.yml -e ... # expect changed=0
+
+# The health signal, on the VM (the API is not public)
+ssh -o ProxyCommand="ssh -i ~/.ssh/agripulse_azure -W %h:%p azureuser@$AGRIPULSE_BASTION_IP" \
+    -i ~/.ssh/agripulse_azure azureuser@"$AGRIPULSE_VM_IP" \
+    'curl -s localhost:3000/health'
+# expect {"status":"ok","database":"ok"}
+
+# Container logs, for the demo
+ssh ... 'cd /opt/agripulse && sudo docker compose logs --tail 50'
 ```
 
-## 5. Verify the deployment
+## How the registry sign-in works
 
-Open `http://<vm-public-ip>:5173` in a browser. You should see the prices
-table. The playbook itself already checks the API health endpoint, the website,
-the `/api/prices` route through nginx, and that the API and database are not
-open to the network. You can also check by hand:
+There is no registry password anywhere. The VM has a system-assigned managed
+identity holding the `AcrPull` role. The playbook asks Azure's instance
+metadata service for a token for that identity, exchanges it at the registry
+for a short-lived docker credential, and logs in with it. Both steps are
+`no_log`, so no token reaches the output.
 
-```sh
-# Run the playbook again: nothing should change
-ansible-playbook playbook.yml                    # expect changed=0
+## The database schema
 
-# Containers are healthy (from your computer, through SSH)
-ssh -i "$AGRIPULSE_SSH_KEY" azureuser@"$AGRIPULSE_VM_IP" \
-  "cd /opt/agripulse && sudo docker compose -f docker-compose.yml -f docker-compose.vm.yml ps"
+`backend/db/schema.sql` begins with `DROP TABLE`, because it was written for
+development and tests. The playbook therefore checks first whether the `prices`
+table exists and only creates the schema and loads the sample rows when the
+database is empty. An existing production database is never touched.
 
-# Firewall is on and only SSH + 5173 are allowed
-ssh -i "$AGRIPULSE_SSH_KEY" azureuser@"$AGRIPULSE_VM_IP" "sudo ufw status verbose"
-
-# SSH refuses passwords (expect: Permission denied (publickey))
-ssh -o PubkeyAuthentication=no azureuser@"$AGRIPULSE_VM_IP"
-
-# The API and the database are not reachable from the internet (expect a timeout)
-curl -m 5 http://"$AGRIPULSE_VM_IP":3000/health
-```
+This is a guard, not a migration system. Changing the schema of a live database
+still needs a proper migration step.
 
 ## Settings you can change
 
-Non-secret settings live in [`group_vars/all.yml`](group_vars/all.yml):
-
-| Variable | Default | Meaning |
-| -------- | ------- | ------- |
-| `agripulse_repo_url` | this repository | What the VM clones |
-| `agripulse_repo_version` | `main` | Branch or tag to deploy |
-| `agripulse_app_port` | `5173` | Website port. Keep it equal to `app_port` in Terraform |
-| `agripulse_ssh_allowed_from` | `any` | Who the VM's own firewall lets connect over SSH. Set it to your IP for a second layer on top of the Azure NSG |
-
-To deploy new code, merge it into `main` and run the playbook again.
-
-## Security notes
-
-- **Two firewalls.** The Azure network security group (Terraform) and `ufw` on
-  the VM both allow only SSH and the website port.
-- **Docker bypasses ufw for published ports.** That is a known Docker behaviour,
-  so `docker-compose.yml` alone would publish the API (3000) and database (5433)
-  on every interface. The playbook adds `docker-compose.vm.yml`, which binds
-  those two ports to `127.0.0.1`, and then checks that they are not listening
-  publicly.
-- **SSH hardening cannot lock you out by accident.** The playbook allows SSH in
-  `ufw` before turning it on, refuses to disable passwords if the admin user has
-  no key in `authorized_keys`, validates the config with `sshd -t`, reloads (not
-  restarts) the service, and confirms the effective settings with `sshd -T`.
-  The settings file is named `00-...` so it wins over the cloud-init defaults.
-- **Secrets** are read from your environment, written to `/opt/agripulse/.env`
-  (root only, mode `0600`) and hidden from Ansible's output with `no_log`.
-  Nothing secret is in this repository.
+`group_vars/all.yml` holds the non-secret defaults: the app directory, the
+website and API ports, the database name and user, and the SSL mode. The
+connection string is built from those, and the app connects with
+`sslmode=require` because Azure refuses unencrypted connections.
 
 ## Troubleshooting
 
-| Problem | Likely cause and fix |
-| ------- | -------------------- |
-| Ansible ignores `ansible.cfg` ("world writable directory") | The repository is on a Windows drive (`/mnt/c/...`). Keep it in your Linux home, for example `~/agripulse-crop-price-tracker`. |
-| `AGRIPULSE_VM_IP is not set` | Run the `export` lines from step 2 in the same terminal. |
-| Connection times out | Your public IP changed or does not match `admin_ssh_cidr`. Update it in Terraform and apply again. |
-| `Permission denied (publickey)` | `AGRIPULSE_SSH_KEY` points to the wrong private key, or the key file is readable by others (`chmod 600`). |
-| `Could not get lock /var/lib/dpkg/lock` | The VM is still finishing its first boot. Wait a minute and run again (the playbook already waits and retries). |
-| Health check keeps failing | See the logs: `ssh ... "cd /opt/agripulse && sudo docker compose logs --tail 50"`. |
-| Changed the database password and the API cannot connect | PostgreSQL only reads its password the first time the volume is created. Remove the volume on the VM with `sudo docker compose down -v` in `/opt/agripulse`, then run the playbook again (this deletes the data). |
+| Symptom | Cause |
+| --- | --- |
+| SSH times out | Your public IP changed and is no longer in `admin_ssh_cidrs`. Update it in Terraform and apply. |
+| `Permission denied (publickey)` on the jump | `ssh -J` does not pass `-i` to the bastion hop. Use `-o ProxyCommand=...` with the key, or `ssh-add` it first. |
+| Registry sign-in fails | The VM's identity has lost the `AcrPull` role, or `agripulse_acr_login_server` is wrong. |
+| Health check fails | The app started but cannot reach the database. Check the password matches the server and that the private DNS zone is linked. |
+| `agripulse_*` is undefined | An empty `group_vars/all/` directory will shadow `group_vars/all.yml`. Remove it. |
 
 ## Files
 
 ```
-ansible/
-├── ansible.cfg              # defaults for this folder
-├── requirements.yml         # collections used (community.general, community.docker)
-├── playbook.yml             # checks inputs, then runs the three roles
-├── inventory/hosts.yml      # static inventory, filled from environment variables
-├── group_vars/all.yml       # shared non-secret settings
-└── roles/
-    ├── docker/              # Docker, Compose plugin, git
-    ├── security/            # ufw firewall and SSH hardening
-    └── app/                 # clone, .env, compose override, start, checks
+ansible.cfg              settings, points at inventory/hosts.yml
+playbook.yml             input checks, then the three roles
+inventory/hosts.yml      the VM, reached through the bastion
+group_vars/all.yml       non-secret defaults and the database URL
+roles/docker/            Docker and the Compose plugin
+roles/security/          ufw and SSH hardening
+roles/app/               registry sign-in, schema, compose, checks
 ```
