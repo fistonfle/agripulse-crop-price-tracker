@@ -175,7 +175,8 @@ that path to the API, which also checks the database:
 page. To see the signal from outside, without SSH:
 
 ```sh
-curl -i http://<app_url host>:5173/health
+APP_URL="$(terraform -chdir=terraform output -raw app_url)"   # http://IP:5173
+curl -i "$APP_URL/health"
 ```
 
 To prove the probe reacts, stop the API on the VM (`sudo docker stop agripulse-api`),
