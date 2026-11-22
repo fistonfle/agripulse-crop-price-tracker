@@ -404,7 +404,8 @@ Local-only files (`terraform.tfvars`, `.env`) are git-ignored. On the VM, `.env`
 
 ```bash
 # Is the app healthy?
-curl -i <LIVE URL>/health
+APP_URL="$(terraform -chdir=terraform output -raw app_url)"   # http://IP:5173
+curl -i "$APP_URL/health"
 
 # On the VM (through the bastion)
 docker compose ps
