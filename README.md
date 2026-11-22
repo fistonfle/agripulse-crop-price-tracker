@@ -423,6 +423,9 @@ curl -I http://4.221.225.199:5173
 # Is the app healthy? (/health is not public yet - see #63)
 ssh -o ProxyCommand="ssh -i ~/.ssh/agripulse_azure -W %h:%p azureuser@<bastion-ip>" \
     -i ~/.ssh/agripulse_azure azureuser@<app-private-ip> 'curl -s localhost:3000/health'
+# Is the app healthy?
+APP_URL="$(terraform -chdir=terraform output -raw app_url)"   # http://IP:5173
+curl -i "$APP_URL/health"
 
 # On the VM (through the bastion)
 docker compose ps

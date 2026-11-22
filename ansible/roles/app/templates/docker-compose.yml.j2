@@ -1,0 +1,42 @@
+# {{ ansible_managed }}
+# Production stack: two images pulled from the private registry. There is no
+# database container here; the app talks to the managed PostgreSQL server.
+services:
+  backend:
+    image: {{ agripulse_api_image }}
+    container_name: agripulse-api
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # 127.0.0.1 only: the API is reachable from this VM, not from the network
+      - "127.0.0.1:{{ agripulse_api_port }}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - agripulse
+
+  frontend:
+    image: {{ agripulse_web_image }}
+    container_name: agripulse-web
+    restart: unless-stopped
+    ports:
+      # The only port open to the internet, published by the load balancer
+      - "{{ agripulse_app_port }}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - agripulse
+
+networks:
+  agripulse:

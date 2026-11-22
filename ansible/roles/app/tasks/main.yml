@@ -1,13 +1,56 @@
 ---
-# Deploys the app with the repository's own docker-compose.yml.
+# Pulls the images the CD pipeline pushed and runs them against the managed
+# database. No source code is cloned on the VM.
 
-- name: Get the application code
-  ansible.builtin.git:
-    repo: "{{ agripulse_repo_url }}"
-    dest: "{{ agripulse_app_dir }}"
-    version: "{{ agripulse_repo_version }}"
-    update: true
-  register: app_repo
+- name: Create the application directory
+  ansible.builtin.file:
+    path: "{{ agripulse_app_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+# ---------------- Registry sign-in ----------------
+# The VM has a managed identity with the AcrPull role, so there is no registry
+# password anywhere. Azure's metadata service issues a token for that identity,
+# and the registry exchanges it for a short-lived docker credential.
+
+- name: Ask the VM's managed identity for an Azure token
+  ansible.builtin.uri:
+    url: >-
+      http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F
+    headers:
+      Metadata: "true"
+  register: app_identity_token
+  no_log: true
+  changed_when: false
+
+- name: Exchange it for a registry credential
+  ansible.builtin.uri:
+    url: "https://{{ agripulse_acr_login_server }}/oauth2/exchange"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      grant_type: access_token
+      service: "{{ agripulse_acr_login_server }}"
+      access_token: "{{ app_identity_token.json.access_token }}"
+  register: app_refresh_token
+  no_log: true
+  changed_when: false
+
+- name: Sign in to the container registry
+  community.docker.docker_login:
+    registry_url: "{{ agripulse_acr_login_server }}"
+    # This fixed UUID is how the registry recognises a token login.
+    username: "00000000-0000-0000-0000-000000000000"
+    password: "{{ app_refresh_token.json.refresh_token }}"
+  no_log: true
+  # The registry hands out a fresh token on every run, so docker_login would
+  # always report "changed". Signing in does not alter the deployment, so it
+  # is not a change and the playbook stays idempotent.
+  changed_when: false
+
+# ---------------- Configuration ----------------
 
 - name: Write the .env file with the real secrets
   # Mode 0600: only root can read it. no_log keeps the secrets out of the output.
@@ -18,30 +61,79 @@
     group: root
     mode: "0600"
   no_log: true
+  register: app_env
 
-- name: Keep the API and the database private to the VM
-  # docker-compose.yml publishes ports 3000 and 5433 on every network interface,
-  # which is handy on a laptop. Docker also bypasses the ufw firewall for
-  # published ports, so on the VM this override binds them to 127.0.0.1 only.
-  # Only the website port stays public.
+- name: Write the compose file
   ansible.builtin.template:
-    src: docker-compose.vm.yml.j2
-    dest: "{{ agripulse_app_dir }}/docker-compose.vm.yml"
+    src: docker-compose.yml.j2
+    dest: "{{ agripulse_app_dir }}/docker-compose.yml"
     owner: root
     group: root
-    mode: "0644"
-  register: app_override
+    mode: "0640"
+  register: app_compose
 
-- name: Build the images and start the containers
-  # Rebuilds only when the code or the override changed, so a second run that
-  # changes nothing reports "ok". "wait" returns once every healthcheck passes.
+# ---------------- Database schema ----------------
+# schema.sql drops the tables before creating them, so it must never run against
+# a database that already has them. These tasks look first and only create the
+# schema when the database is empty.
+
+- name: Copy the schema and the sample data
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../backend/db/{{ item }}"
+    dest: "{{ agripulse_app_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0640"
+  loop:
+    - schema.sql
+    - seed.sql
+
+- name: Check whether the database already has its tables
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - postgres:16-alpine
+      - psql
+      - "{{ agripulse_database_url }}"
+      - -tAc
+      - SELECT to_regclass('public.prices') IS NOT NULL
+  register: app_db_has_tables
+  changed_when: false
+  no_log: true
+
+- name: Create the schema and load the sample data, only on an empty database
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --volume
+      - "{{ agripulse_app_dir }}:/sql:ro"
+      - postgres:16-alpine
+      - psql
+      - "{{ agripulse_database_url }}"
+      - -v
+      - ON_ERROR_STOP=1
+      - -f
+      - "/sql/{{ item }}"
+  loop:
+    - schema.sql
+    - seed.sql
+  when: app_db_has_tables.stdout | trim != 't'
+  changed_when: true
+  no_log: true
+
+# ---------------- Run ----------------
+
+- name: Pull the images and start the containers
+  # "pull: always" makes sure a moved tag such as latest is really refreshed.
+  # "wait" returns once every healthcheck passes.
   community.docker.docker_compose_v2:
     project_src: "{{ agripulse_app_dir }}"
-    files:
-      - docker-compose.yml
-      - docker-compose.vm.yml
     state: present
-    build: "{{ 'always' if (app_repo.changed or app_override.changed) else 'policy' }}"
+    pull: always
     remove_orphans: true
     wait: true
     wait_timeout: 300
@@ -66,16 +158,23 @@
     - /api/prices
   changed_when: false
 
+- name: Confirm the running image is the one that was asked for
+  ansible.builtin.command:
+    argv: [docker, inspect, --format, "{{ '{{' }} .Config.Image {{ '}}' }}", agripulse-api]
+  register: app_running_image
+  changed_when: false
+  failed_when: app_running_image.stdout | trim != agripulse_api_image
+
 - name: List the TCP ports the VM is listening on
   ansible.builtin.command: ss -H -ltn
   register: app_listeners
   changed_when: false
 
-- name: Confirm the API and the database are not open to the network
+- name: Confirm the API is not open to the network
   vars:
-    app_public_pattern: '(0\.0\.0\.0|\*|\[::\]):({{ agripulse_api_port }}|{{ agripulse_db_port }})\s'
+    app_public_pattern: '(0\.0\.0\.0|\*|\[::\]):{{ agripulse_api_port }}\s'
   ansible.builtin.assert:
     that:
       - app_listeners.stdout_lines | select('search', app_public_pattern) | list | length == 0
-    fail_msg: The API or the database is listening on all network interfaces.
-    success_msg: Only the website port is public. The API and the database listen on 127.0.0.1.
+    fail_msg: The API is listening on all network interfaces.
+    success_msg: Only the website port is public. The API listens on 127.0.0.1.
