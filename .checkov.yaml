@@ -19,7 +19,3 @@ skip-check:
   - CKV_AZURE_166   # ACR image quarantine (Premium SKU).
   - CKV_AZURE_167   # ACR retention policy for untagged manifests (Premium SKU).
   - CKV_AZURE_163   # ACR built-in vulnerability scanning. Trivy scans the images in CI instead.
-
-  # --- Planned fixes: remove these skips once the Terraform is changed ---
-  - CKV_AZURE_50    # Set allow_extension_operations = false on both VMs. No VM extensions are used.
-  - CKV2_AZURE_31   # Add a network security group to the database subnet.

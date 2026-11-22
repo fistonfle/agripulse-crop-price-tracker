@@ -50,7 +50,7 @@ output "database_admin_username" {
 
 output "ssh_to_app_vm" {
   description = "Command that reaches the private application VM through the bastion."
-  value       = "ssh -J ${var.admin_username}@${azurerm_public_ip.bastion.ip_address} ${var.admin_username}@${azurerm_network_interface.app.private_ip_address}"
+  value       = "ssh -o ProxyCommand=\"ssh -i ~/.ssh/agripulse_azure -W %h:%p ${var.admin_username}@${azurerm_public_ip.bastion.ip_address}\" -i ~/.ssh/agripulse_azure ${var.admin_username}@${azurerm_network_interface.app.private_ip_address}"
 }
 
 output "bastion_nsg_name" {

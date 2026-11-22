@@ -32,6 +32,7 @@ resource "azurerm_linux_virtual_machine" "bastion" {
   size                            = var.bastion_vm_size
   admin_username                  = var.admin_username
   disable_password_authentication = true
+  allow_extension_operations      = false
   network_interface_ids           = [azurerm_network_interface.bastion.id]
 
   admin_ssh_key {
@@ -85,6 +86,7 @@ resource "azurerm_linux_virtual_machine" "app" {
   disable_password_authentication = true
   network_interface_ids           = [azurerm_network_interface.app.id]
   custom_data                     = base64encode(templatefile("${path.module}/cloud-init.yaml.tftpl", { admin_username = var.admin_username }))
+  allow_extension_operations      = false
 
   # Used to pull images from the private registry, so no registry password is stored.
   identity {
