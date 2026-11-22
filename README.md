@@ -95,7 +95,7 @@ agripulse-crop-price-tracker/
 ├── .env.example            # Settings for docker compose (copy to .env)
 ├── docs/screenshots/       # Images used in this README
 ├── backend/                # Express REST API
-│   ├── db/                 # schema.sql (tables), seed.sql (sample data)
+│   ├── db/                 # migrations/ (production schema), schema.sql (dev/test only), seed.sql, README.md
 │   ├── .env.example        # Settings (copy to .env)
 │   ├── src/
 │   │   ├── app.js          # API routes

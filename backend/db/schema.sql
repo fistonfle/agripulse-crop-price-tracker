@@ -1,4 +1,8 @@
--- Drops and recreates all tables. Only for development and tests!
+-- DEVELOPMENT AND TESTS ONLY. NEVER RUN THIS ON PRODUCTION.
+-- It drops every table and recreates it, so all data is lost. It is the quick
+-- bootstrap for docker compose, `npm run db:setup` and the automated tests.
+-- Production uses the numbered files in migrations/ (see db/README.md). When you
+-- add a migration, make the same change here so development matches production.
 DROP TABLE IF EXISTS price_history;
 DROP TABLE IF EXISTS prices;
 DROP TABLE IF EXISTS users;
