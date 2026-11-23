@@ -4,10 +4,13 @@ Notable changes to AgriPulse are recorded here, grouped by merge date and projec
 
 ## In progress
 
-- Summative production topology: bastion, private VM, managed database, and ACR. [Issue #48](https://github.com/fistonfle/agripulse-crop-price-tracker/issues/48), [PR #56](https://github.com/fistonfle/agripulse-crop-price-tracker/pull/56) — open.
-- Summative Ansible deployment of the ACR image. [Issue #49](https://github.com/fistonfle/agripulse-crop-price-tracker/issues/49) — open.
-- Summative deploy to production on merge to `main`. [Issue #51](https://github.com/fistonfle/agripulse-crop-price-tracker/issues/51), [PR #57](https://github.com/fistonfle/agripulse-crop-price-tracker/pull/57) — open.
 - Summative live application and health signal. [Issue #52](https://github.com/fistonfle/agripulse-crop-price-tracker/issues/52) — open.
+
+## 2026-11-20 — Summative
+
+- Added Terraform for the production topology: a bastion, private app VM, load balancer, privately accessible managed PostgreSQL, and ACR. Validated the configuration and plan; the infrastructure had not yet been applied. [Issue #48](https://github.com/fistonfle/agripulse-crop-price-tracker/issues/48), [PR #56](https://github.com/fistonfle/agripulse-crop-price-tracker/pull/56).
+- Added CD on merges to `main`, including CI and security scan gates, image publishing, deployment through the bastion, and a live health check. The pipeline had not yet been run end to end against a live VM. [Issue #51](https://github.com/fistonfle/agripulse-crop-price-tracker/issues/51), [PR #57](https://github.com/fistonfle/agripulse-crop-price-tracker/pull/57).
+- Added Ansible deployment of tagged ACR images to the app VM using managed PostgreSQL. The playbook passed its checks but had not yet been run against a real VM. [Issue #49](https://github.com/fistonfle/agripulse-crop-price-tracker/issues/49), [PR #61](https://github.com/fistonfle/agripulse-crop-price-tracker/pull/61).
 
 ## 2026-11-19 — Summative
 
