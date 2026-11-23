@@ -43,6 +43,19 @@ resource "azurerm_subnet" "database" {
   }
 }
 
+resource "azurerm_network_security_group" "database" {
+  name                = "${var.name_prefix}-database-nsg"
+  location            = azurerm_resource_group.app.location
+  resource_group_name = azurerm_resource_group.app.name
+
+  tags = var.tags
+}
+
+resource "azurerm_subnet_network_security_group_association" "database" {
+  subnet_id                 = azurerm_subnet.database.id
+  network_security_group_id = azurerm_network_security_group.database.id
+}
+
 # ---- Bastion security group: SSH from our own addresses only ----
 
 resource "azurerm_network_security_group" "bastion" {
