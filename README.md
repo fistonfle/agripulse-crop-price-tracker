@@ -334,7 +334,7 @@ flowchart LR
 
   ```bash
   ssh -o ProxyCommand="ssh -i ~/.ssh/agripulse_azure -W %h:%p azureuser@<bastion-ip>" \
-      -i ~/.ssh/agripulse_azure azureuser@<app-private-ip> 'curl -s localhost:3000/health'
+      -i ~/.ssh/agripulse_azure azureuser@<app-private-ip> 'curl --fail --show-error --silent localhost:3000/health'
   ```
 
   Making it answer publicly, and having the load balancer probe it instead of
@@ -422,10 +422,10 @@ curl -I http://4.221.225.199:5173
 
 # Is the app healthy? (/health is not public yet - see #63)
 ssh -o ProxyCommand="ssh -i ~/.ssh/agripulse_azure -W %h:%p azureuser@<bastion-ip>" \
-    -i ~/.ssh/agripulse_azure azureuser@<app-private-ip> 'curl -s localhost:3000/health'
-# Is the app healthy?
+    -i ~/.ssh/agripulse_azure azureuser@<app-private-ip> 'curl --fail --show-error --silent localhost:3000/health'
+# Is the website reachable? This checks the frontend, not the database.
 APP_URL="$(terraform -chdir=terraform output -raw app_url)"   # http://IP:5173
-curl -i "$APP_URL/health"
+curl --fail --show-error --silent --head "$APP_URL/"
 
 # On the VM (through the bastion)
 docker compose ps
