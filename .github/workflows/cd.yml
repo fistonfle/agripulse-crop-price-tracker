@@ -196,6 +196,9 @@ jobs:
         working-directory: ansible
         env:
           AGRIPULSE_VM_IP: ${{ env.APP_PRIVATE_IP }}
+          # So the team's SSH keys are installed on the bastion too, not just
+          # the app VM. The runner already has a just-in-time rule open to it.
+          AGRIPULSE_BASTION_IP: ${{ env.BASTION_IP }}
           AGRIPULSE_SSH_USER: ${{ env.SSH_USER }}
           AGRIPULSE_SSH_KEY: ~/.ssh/agripulse
           AGRIPULSE_POSTGRES_PASSWORD: ${{ secrets.AGRIPULSE_POSTGRES_PASSWORD }}

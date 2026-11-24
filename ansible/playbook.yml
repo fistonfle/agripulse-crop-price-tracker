@@ -63,7 +63,44 @@
         quiet: true
       no_log: true
 
-# ---- Play 2: configure the VM ----
+# ---- Play 2: team SSH keys, on both machines ----
+# Runs before the app play so that if someone is locked out, the fix lands
+# early rather than after a long deploy.
+- name: Install the team's SSH keys
+  hosts: agripulse:bastion
+  gather_facts: false
+  tags: [ssh-keys]
+  tasks:
+    - name: Allow each team key to log in as the admin user
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user }}"
+        key: "{{ item.key }}"
+        comment: "{{ item.name }}"
+        state: present
+        exclusive: false
+      loop: "{{ agripulse_team_ssh_keys | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      # An empty ansible_host means the address was not exported - skip that
+      # host instead of failing. With no task left to run, Ansible never opens
+      # a connection to it.
+      when:
+        - ansible_host | default('') | length > 0
+        - not (agripulse_team_ssh_keys_exclusive | default(false) | bool)
+
+    # Separate task because "exclusive" has to be set on the first key only;
+    # looping with exclusive: true would leave just the last key in the file.
+    - name: Replace authorized_keys with exactly the team keys
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user }}"
+        key: "{{ agripulse_team_ssh_keys | map(attribute='key') | join('\n') }}"
+        state: present
+        exclusive: true
+      when:
+        - ansible_host | default('') | length > 0
+        - agripulse_team_ssh_keys_exclusive | default(false) | bool
+
+# ---- Play 3: configure the VM ----
 - name: Configure the AgriPulse VM
   hosts: agripulse
   become: true

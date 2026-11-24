@@ -38,6 +38,28 @@ agripulse_database_url: >-
   postgres://{{ agripulse_postgres_user }}:{{ agripulse_postgres_password }}@{{ agripulse_database_fqdn }}:{{
   agripulse_database_port }}/{{ agripulse_postgres_db }}?sslmode={{ agripulse_database_sslmode }}
 
+# ---- Team SSH access ----
+# Public keys that may log in as the admin user, on the bastion and the app VM.
+# Public keys are not secrets, so they belong in the repo: that way a rebuilt VM
+# still lets the team in, and adding or removing someone is a reviewable change
+# rather than an edit made by hand on the box.
+#
+# Terraform plants only the first key (var.admin_ssh_public_key) because
+# admin_ssh_key is ForceNew on azurerm_linux_virtual_machine - changing it there
+# would destroy and recreate both VMs. These are added on top, by Ansible.
+#
+# To add someone: append their name and the contents of their ~/.ssh/id_ed25519.pub.
+# To remove someone: delete their entry and set agripulse_team_ssh_keys_exclusive
+# to true for one run, which removes every key not listed here.
+agripulse_team_ssh_keys:
+  - name: tabitha2005
+    key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMEX7dQ8uYdglR55imlK5oBWgR3WPvPnfelJ6j739wR7 tabitha2005"
+
+# Leave false. Setting it true makes authorized_keys contain exactly the keys
+# above and nothing else, which also removes the key Terraform planted - only do
+# that deliberately, and never from CI.
+agripulse_team_ssh_keys_exclusive: false
+
 # ---- Firewall and SSH ----
 # Who may open an SSH connection through the VM's own firewall.
 # "any" is fine because the Azure network security group already limits SSH to
