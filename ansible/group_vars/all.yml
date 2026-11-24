@@ -54,6 +54,8 @@ agripulse_database_url: >-
 agripulse_team_ssh_keys:
   - name: tabitha2005
     key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMEX7dQ8uYdglR55imlK5oBWgR3WPvPnfelJ6j739wR7 tabitha2005"
+  - name: millowise01
+    key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCzrHCzSZ6ghGlK5dO8M9JvThXayU8G5gK9+7mjoODrXw62QqjTkuqriNudEHQqB9ov08x6f894cKNOA8h5DN+hoX/1LGLSuiuwstslzIBqptWa6tQinyEWFTUlunAj5TuN4Xm00IkQETexogV3TfmZUu82zQRpFJw0hpz+BzPk9alWbEBXZA2E4RD6UuY0UV5hbvaIc8aYKSkJLk+JkYq1NS5Z3qhgTfOBAuEJ+lbaNb5RUGW5ESNzfF2kHfPguGmVc/lAkvjq/1UhLacrufTkkYxU8pRtWRXMoNIjLrOBxrUdp/oNy+5YgBPaSSbLLI64GzapGmA0FEJYKAgLw81HLA0Ai7xsnapRQKjvxIe7a352Q2ofOr4mZXl+29p9xiad0h0pzmgfKWk7ypLeEXzV/zQFH4ONIA3ZzAg3HTwnaP7sikqNdf4hqPN3C1UqsXmSwi8AroEqXYKC2sam8LfLsmikGeQxjcLjnu0S8fNpiu5KDRo9FVOraM7+nfXMaueZnL1dS/acr97L9Z2NFN8HgPDX0UiYNvDoJSzEmWwXb4q6AwSuytVVMA+pA1c3brKwrKu+vvJYmJnf/7twkba88Evc0KiWgMo/GnrxntW8NfwBbsJWDYOn4IDI7dX20lASC9ATFMIplOshTTLtQ/4+2ms4AK877kP7JADbfg2w3w== millo@Millowise"
 
 # Leave false. Setting it true makes authorized_keys contain exactly the keys
 # above and nothing else, which also removes the key Terraform planted - only do
