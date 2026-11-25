@@ -4,7 +4,7 @@
 
 > Empowering farmers, traders, and cooperatives with market price transparency.
 
-**Live app:** http://4.221.225.199:5173 · [Architecture](#architecture) · [Deploy from scratch](#deploy-from-scratch)
+**Live app:** http://4.221.225.199:5173 · **[Demo video](https://youtu.be/b2fgZ40gLqo)** · [Architecture](#architecture) · [Deploy from scratch](#deploy-from-scratch)
 
 ## Problem Statement
 
@@ -326,6 +326,7 @@ flowchart LR
 ## Live application
 
 - **App:** http://4.221.225.199:5173 (the `app_url` Terraform output)
+- **Demo video:** https://youtu.be/b2fgZ40gLqo
 - **Region:** South Africa North. Azure for Students only permits five regions,
   and the nearest to Rwanda is this one.
 - **Health check:** `{"status":"ok","database":"ok"}` from `/health` on the
